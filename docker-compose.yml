@@ -1,12 +1,18 @@
+# LOKO Platform — единый Docker Compose для Dokploy
+# Оба контейнера в одной сети, nginx проксирует /api → backend
+# В Dokploy: один Compose проект, домен на loko-frontend:3000
+
 services:
   # ─── Backend: Express API ─────────────────────────────────────
   loko-backend:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: loko-backend
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - SERVER_PORT=4000
@@ -21,13 +27,14 @@ services:
       retries: 3
       start_period: 15s
 
-  # ─── Frontend: serve (static) ─────────────────────────────────
+  # ─── Frontend: Nginx (статика + прокси /api) ──────────────────
   loko-frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
       args:
         - VITE_API_URL=/api
+    container_name: loko-frontend
     restart: unless-stopped
     expose:
       - "3000"
@@ -37,3 +44,4 @@ services:
 
 volumes:
   loko-uploads:
+    driver: local

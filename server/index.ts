@@ -49,6 +49,9 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '2mb' }))  // увеличен лимит для загрузки лого
 
+// За reverse proxy (nginx/Traefik) — доверяем X-Forwarded-* заголовкам
+app.set('trust proxy', 1)
+
 // ─── Session (connect-pg-simple, PostgreSQL) ─────────────────
 const PgStore = ConnectPgSimple(session)
 app.use(session({
@@ -59,7 +62,7 @@ app.use(session({
   cookie: {
     maxAge: 7 * 24 * 3600 * 1000,  // 7 дней = 168 часов (>> 20 часов рабочего дня)
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.FRONTEND_URL?.startsWith('https'),  // secure только при HTTPS
     sameSite: 'lax',
   }
 }))
