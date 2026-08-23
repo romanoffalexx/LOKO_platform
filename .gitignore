@@ -1,0 +1,33 @@
+# ─── Dependencies ─────────────────────────────────────────
+node_modules/
+
+# ─── Vite build output ────────────────────────────────────
+dist/
+
+# ─── Environment ──────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Logs ─────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── OS / Editor ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ─── Uploads (user data, не в репо) ───────────────────────
+uploads/*
+!uploads/.gitkeep
+
+# ─── IDE / Tools ──────────────────────────────────────────
+.qoder/
+.claude/
+.opencode/
+
+# ─── Misc ─────────────────────────────────────────────────
+*.tsbuildinfo
+.cache/

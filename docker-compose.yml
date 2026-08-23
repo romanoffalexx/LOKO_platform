@@ -1,0 +1,38 @@
+services:
+  # ─── Backend: Express API ─────────────────────────────────────
+  loko-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: loko-backend
+    restart: unless-stopped
+    expose:
+      - "4000"
+    environment:
+      NODE_ENV: "production"
+    env_file:
+      - .env
+    volumes:
+      - loko-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── Frontend: статика (serve) ────────────────────────────────
+  loko-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: loko-frontend
+    restart: unless-stopped
+    expose:
+      - "3000"
+    depends_on:
+      loko-backend:
+        condition: service_healthy
+
+volumes:
+  loko-uploads:

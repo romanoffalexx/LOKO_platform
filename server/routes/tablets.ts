@@ -1,0 +1,90 @@
+import { Router, type Request, type Response } from 'express'
+import { pool } from '../db/pool.js'
+
+export const tabletsRouter = Router()
+
+/** GET /api/tablets — список планшетов (фильтр: organization_id, status) */
+tabletsRouter.get('/', async (req: Request, res: Response) => {
+  try {
+    const { organization_id, status } = req.query
+    let sql = `
+      SELECT t.*, org.name AS organization_name
+      FROM tablets t
+      LEFT JOIN organizations org ON org.id = t.organization_id
+    `
+    const conditions: string[] = []
+    const params: any[] = []
+    let idx = 1
+
+    if (organization_id) { conditions.push(`t.organization_id = $${idx++}`); params.push(organization_id) }
+    if (status)          { conditions.push(`t.status = $${idx++}`);          params.push(status) }
+    if (conditions.length) sql += ` WHERE ` + conditions.join(' AND ')
+    sql += ` ORDER BY t.created_at DESC`
+
+    const { rows } = await pool.query(sql, params)
+    res.json(rows)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+/** GET /api/tablets/:id */
+tabletsRouter.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.*, org.name AS organization_name
+       FROM tablets t LEFT JOIN organizations org ON org.id = t.organization_id
+       WHERE t.id = $1`,
+      [req.params.id],
+    )
+    if (rows.length === 0) return res.status(404).json({ error: 'Не найден' })
+    res.json(rows[0])
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+/** POST /api/tablets — создать планшет */
+tabletsRouter.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, serial, organization_id, point, zone } = req.body
+    const { rows } = await pool.query(
+      `INSERT INTO tablets (name, serial, organization_id, point, zone)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [name, serial, organization_id ?? null, point ?? '', zone ?? ''],
+    )
+    res.status(201).json(rows[0])
+  } catch (err: any) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+/** PATCH /api/tablets/:id — обновить планшет */
+tabletsRouter.patch('/:id', async (req: Request, res: Response) => {
+  try {
+    const allowed = ['name','serial','organization_id','point','zone','status','last_seen','app_version']
+    const fields = Object.entries(req.body).filter(([k]) => allowed.includes(k))
+    if (fields.length === 0) return res.status(400).json({ error: 'Нет полей' })
+    const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
+    const vals = fields.map(([, v]) => v)
+    const { rows } = await pool.query(
+      `UPDATE tablets SET ${set} WHERE id = $${fields.length + 1} RETURNING *`,
+      [...vals, req.params.id],
+    )
+    if (rows.length === 0) return res.status(404).json({ error: 'Не найден' })
+    res.json(rows[0])
+  } catch (err: any) {
+    res.status(400).json({ error: err.message })
+  }
+})
+
+/** DELETE /api/tablets/:id */
+tabletsRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { rowCount } = await pool.query(`DELETE FROM tablets WHERE id = $1`, [req.params.id])
+    if (rowCount === 0) return res.status(404).json({ error: 'Не найден' })
+    res.json({ ok: true })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})

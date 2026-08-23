@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-loko-bg-base text-loko-text-primary antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-image:
+      radial-gradient(at 12% 8%, rgba(255, 45, 106, 0.10) 0px, transparent 50%),
+      radial-gradient(at 88% 0%, rgba(124, 58, 237, 0.10) 0px, transparent 50%),
+      radial-gradient(at 0% 90%, rgba(168, 85, 247, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.25);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 45, 106, 0.45);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Брендовый текст с градиентом */
+  .text-gradient {
+    background: linear-gradient(135deg, #FF2D6A 0%, #A855F7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Карточка в стиле ЯОКО */
+  .card {
+    @apply rounded-2xl border border-loko-bg-border bg-loko-bg-surface/70 backdrop-blur-xl;
+  }
+
+  .card-elevated {
+    @apply rounded-2xl border border-loko-bg-border bg-loko-bg-elevated/60 backdrop-blur-xl shadow-glow-soft;
+  }
+
+  /* Брендовая кнопка */
+  .btn-brand {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white
+           bg-gradient-brand shadow-glow transition-all duration-200 hover:shadow-glow-strong
+           hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
+           focus:outline-none focus:ring-2 focus:ring-loko-pink/60;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
+           text-loko-text-secondary border border-loko-bg-border bg-loko-bg-surface/40
+           hover:bg-loko-bg-elevated/60 hover:text-loko-text-primary transition-all;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
+           text-loko-text-primary border border-loko-pink/40 bg-loko-pink/5
+           hover:bg-loko-pink/10 transition-all;
+  }
+
+  /* Бейдж статуса */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-pink { @apply bg-loko-pink/15 text-loko-pink border border-loko-pink/30; }
+  .badge-violet { @apply bg-loko-violet/15 text-loko-purple border border-loko-violet/30; }
+  .badge-success { @apply bg-loko-success/15 text-loko-success border border-loko-success/30; }
+  .badge-warn { @apply bg-loko-warn/15 text-loko-warn border border-loko-warn/30; }
+  .badge-danger { @apply bg-loko-danger/15 text-loko-danger border border-loko-danger/30; }
+  .badge-neutral { @apply bg-loko-bg-elevated text-loko-text-secondary border border-loko-bg-border; }
+
+  /* Инпут */
+  .input {
+    @apply w-full rounded-xl border border-loko-bg-border bg-loko-bg-base/60 px-4 py-3 text-base
+           text-loko-text-primary placeholder:text-loko-text-muted
+           focus:outline-none focus:border-loko-pink/60 focus:ring-2 focus:ring-loko-pink/20
+           transition-all;
+  }
+
+  /* Сайдбар-айтем */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-loko-text-secondary
+           transition-all hover:bg-loko-bg-elevated/40 hover:text-loko-text-primary;
+  }
+  .nav-item-active {
+    @apply bg-gradient-brand-soft text-loko-text-primary
+           shadow-[inset_0_0_0_1px_rgba(255,45,106,0.3),0_0_24px_rgba(255,45,106,0.15)];
+  }
+
+  /* Заголовок секции */
+  .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.25em] text-loko-text-muted;
+  }
+
+  /* Метрика-карточка */
+  .metric-card {
+    @apply card relative overflow-hidden p-5;
+  }
+
+  /* Тонкая разделительная линия */
+  .divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-loko-bg-border to-transparent;
+  }
+
+  /* Glow-ring */
+  .glow-ring {
+    box-shadow:
+      0 0 0 1px rgba(255, 45, 106, 0.4),
+      0 0 24px rgba(255, 45, 106, 0.35),
+      inset 0 0 16px rgba(168, 85, 247, 0.2);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Лёгкая виньетка */
+  .vignette::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%);
+  }
+}
+
+/* ==== Tablet (клиентский) safe area ==== */
+.safe-pad {
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ==== Marquee для барабана ==== */
+@keyframes marquee {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+.marquee-track {
+  animation: marquee 6s linear infinite;
+}
