@@ -1,0 +1,14 @@
+# Docker Compose для Frontend SPA (отдельный деплой в Dokploy)
+# Переменные окружения не нужны — VITE_API_URL задаётся через build arg
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_URL=/api
+    container_name: loko-frontend
+    restart: unless-stopped
+    expose:
+      - "3000"
