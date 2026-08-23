@@ -17,7 +17,7 @@ export const PartnerOffers: FC = () => {
       pointOffersApi.list(),
       pointsApi.list(),
     ]).then(([offersData, poData, pointsData]) => {
-      const orgId = user?.organizationId
+      const orgId = user?.organization_id
       setOffers(offersData.filter((o: any) => o.organization_id === orgId))
       setPointOffers(poData)
       setPoints(pointsData)
@@ -30,7 +30,7 @@ export const PartnerOffers: FC = () => {
 
   // Акции, назначенные на точки партнёра (чужие акции, которые можно показывать)
   const assignedPointOffersers = pointOffers.filter(po =>
-    myPointIds.has(po.point_id) && po.offer_org_id !== user?.organizationId
+    myPointIds.has(po.point_id) && po.offer_org_id !== user?.organization_id
   )
 
   const mine = tab === 'mine' ? offers : []
