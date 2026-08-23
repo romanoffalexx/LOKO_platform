@@ -1,18 +1,50 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { offersApi } from '@/lib/api'
-import { IconSearch, IconFilter, IconDownload, IconPlus, IconCalendar, IconPin } from '@/components/ui/icons'
+import { offersApi, organizationsApi } from '@/lib/api'
+import { IconSearch, IconFilter, IconDownload, IconPlus, IconCalendar, IconPin, IconClose } from '@/components/ui/icons'
 
 export function AdminOffers() {
   const [offers, setOffers] = useState<any[]>([])
+  const [orgs, setOrgs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCreate, setShowCreate] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    title: '', description: '', organization_id: '',
+    starts_at: '', ends_at: '', zone: 'all',
+    emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)',
+    coupon_count: '100', weight: '1',
+  })
 
-  useEffect(() => {
-    offersApi.list()
-      .then(setOffers)
+  const reload = () => {
+    setLoading(true)
+    Promise.all([offersApi.list(), organizationsApi.list()])
+      .then(([offersData, orgsData]) => { setOffers(offersData); setOrgs(orgsData) })
       .catch(err => console.error('[Offers]', err))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { reload() }, [])
+
+  const handleCreate = async () => {
+    if (!form.title || !form.organization_id) return
+    setSaving(true)
+    try {
+      await offersApi.create({
+        ...form,
+        organization_id: form.organization_id,
+        coupon_count: Number(form.coupon_count),
+        weight: Number(form.weight),
+      })
+      setShowCreate(false)
+      setForm({ title: '', description: '', organization_id: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100', weight: '1' })
+      reload()
+    } catch (err) {
+      console.error('[Offer create]', err)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div>
@@ -28,9 +60,66 @@ export function AdminOffers() {
           </div>
           <button className="btn-ghost"><IconFilter size={16} />Фильтры</button>
           <button className="btn-ghost"><IconDownload size={16} /></button>
-          <button className="btn-brand"><IconPlus size={16} />Создать акцию</button>
+          <button onClick={() => setShowCreate(true)} className="btn-brand"><IconPlus size={16} />Создать акцию</button>
         </div>
       </div>
+
+      {/* Модалка создания акции */}
+      {showCreate && (
+        <div className="card mb-4 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-loko-text-primary">Новая акция</h3>
+            <button onClick={() => setShowCreate(false)} className="text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Название *</label>
+              <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} className="input w-full" placeholder="Скидка 20% на кофе" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Организация *</label>
+              <select value={form.organization_id} onChange={e => setForm(p => ({ ...p, organization_id: e.target.value }))} className="input w-full">
+                <option value="">Выберите…</option>
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Дата начала</label>
+              <input type="date" value={form.starts_at} onChange={e => setForm(p => ({ ...p, starts_at: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Дата окончания</label>
+              <input type="date" value={form.ends_at} onChange={e => setForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Зона</label>
+              <input value={form.zone} onChange={e => setForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="all, center, north…" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Эмодзи</label>
+              <input value={form.emoji} onChange={e => setForm(p => ({ ...p, emoji: e.target.value }))} className="input w-full" placeholder="🎁" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Кол-во купонов</label>
+              <input type="number" value={form.coupon_count} onChange={e => setForm(p => ({ ...p, coupon_count: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Вес</label>
+              <input type="number" value={form.weight} onChange={e => setForm(p => ({ ...p, weight: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-loko-text-muted mb-1">Описание</label>
+            <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="input w-full min-h-[60px] resize-y" placeholder="Описание акции для партнёров" />
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleCreate} disabled={saving} className="btn-brand disabled:opacity-50">
+              {saving ? 'Создание…' : 'Создать акцию'}
+            </button>
+            <button onClick={() => setShowCreate(false)} className="btn-ghost">Отмена</button>
+          </div>
+        </div>
+      )}
 
       {loading && <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>}
 

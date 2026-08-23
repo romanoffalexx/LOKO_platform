@@ -70,7 +70,7 @@ export function AdminOrganizations() {
             <IconSearch size={16} />
             <input placeholder="Поиск организации…" className="w-full bg-transparent text-loko-text-primary placeholder:text-loko-text-muted focus:outline-none" />
           </div>
-          <button onClick={() => setShowInvite(true)} className="btn-ghost"><IconMail size={16} />Приглашение</button>
+          {/* <button onClick={() => setShowInvite(true)} className="btn-ghost"><IconMail size={16} />Приглашение</button> */}
           <button onClick={() => setShowCreate(true)} className="btn-brand"><IconPlus size={16} />Создать</button>
         </div>
       </div>
@@ -121,7 +121,7 @@ export function AdminOrganizations() {
         </div>
       )}
 
-      {/* Модалка приглашения */}
+      {/* Модалка приглашения — временно скрыта
       {showInvite && (
         <div className="card mb-4 p-5 space-y-3">
           <div className="flex items-center justify-between">
@@ -159,7 +159,6 @@ export function AdminOrganizations() {
             </div>
           )}
 
-          {/* Список существующих приглашений */}
           {invitations.length > 0 && (
             <div className="mt-2">
               <div className="text-xs font-semibold text-loko-text-muted uppercase tracking-wider mb-2">Активные приглашения</div>
@@ -179,6 +178,7 @@ export function AdminOrganizations() {
           )}
         </div>
       )}
+      */}
 
       {loading && (
         <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>

@@ -79,13 +79,16 @@ offersRouter.post('/', async (req: Request, res: Response) => {
       title, organization_id, description, emoji, bg_gradient,
       starts_at, ends_at, weight, zone, allowed_org_ids,
     } = req.body
+    if (!title || !organization_id) return res.status(400).json({ error: 'title и organization_id обязательны' })
+    const now = new Date()
+    const defaultEnd = new Date(now.getTime() + 7 * 24 * 3600 * 1000) // +7 дней
     const { rows } = await pool.query(
       `INSERT INTO offers
         (title, organization_id, description, emoji, bg_gradient, starts_at, ends_at, weight, zone, allowed_org_ids)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [title, organization_id, description ?? '', emoji ?? '🎁',
        bg_gradient ?? 'linear-gradient(135deg, #A855F7 0%, #7C3AED 100%)',
-       starts_at, ends_at, weight ?? 10, zone ?? '', allowed_org_ids ?? []],
+       starts_at || now, ends_at || defaultEnd, weight ?? 10, zone ?? '', allowed_org_ids ?? []],
     )
     res.status(201).json(rows[0])
   } catch (err: any) {
