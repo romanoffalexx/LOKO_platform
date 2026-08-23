@@ -1,8 +1,9 @@
-# Docker Compose для Frontend SPA (отдельный деплой в Dokploy)
-# Переменные окружения не нужны — VITE_API_URL задаётся через build arg
+# Docker Compose для Frontend (отдельный деплой в Dokploy)
+# Nginx раздаёт статику и проксирует /api → loko-backend по общей сети
+# Домен в Dokploy привязывается к сервису loko-frontend, порт 3000
 
 services:
-  frontend:
+  loko-frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -12,3 +13,11 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    networks:
+      - loko_net
+
+networks:
+  loko_net:
+    name: loko_net
+    driver: bridge
+    external: true

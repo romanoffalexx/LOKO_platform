@@ -1,38 +1,36 @@
 # Docker Compose для Backend API (отдельный деплой в Dokploy)
-# Переменные окружения пробрасываются из Dokploy UI
+# Создаёт сеть loko_net при первом деплое
 
 services:
-  backend:
+  loko-backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: loko-backend
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       - NODE_ENV=production
       - SERVER_PORT=4000
-      - DATABASE_URL
-      - SESSION_SECRET
-      - MASTER_EMAIL
-      - MASTER_PASSWORD
-      - FRONTEND_URL
-      - VITE_API_URL
-      - SMTP_HOST
-      - SMTP_PORT
-      - SMTP_USER
-      - SMTP_PASS
-      - SMTP_FROM
-      - TELEGRAM_BOT_TOKEN
     expose:
       - "4000"
     volumes:
       - loko-uploads:/app/uploads
+    networks:
+      - loko_net
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
+
+networks:
+  loko_net:
+    name: loko_net
+    driver: bridge
 
 volumes:
   loko-uploads:
