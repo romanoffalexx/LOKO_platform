@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { organizationsApi, offersApi } from '@/lib/api'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
-  IconCheck, IconPlus, IconDownload,
+  IconCheck, IconPlus,
 } from '@/components/ui/icons'
 
 export function AdminOrganizationDetail() {
@@ -67,7 +67,7 @@ export function AdminOrganizationDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="btn-ghost"><IconDownload size={16} />Экспорт</button>
+            
             <button className="btn-outline"><IconPlus size={16} />Точка</button>
             <button className="btn-brand"><IconPlus size={16} />Акция</button>
           </div>

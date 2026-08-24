@@ -27,10 +27,11 @@ export function AdminNotifications() {
         <div className="flex items-center gap-2">
           <span className="badge badge-success">MAX · подключён</span>
           <span className="badge badge-success">E-mail · подключён</span>
+          <span className="badge badge-success">Telegram · подключён</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <div className="card p-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-brand text-white">MAX</div>
@@ -45,7 +46,16 @@ export function AdminNotifications() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-violet text-white"><IconMail size={18} /></div>
             <div>
               <div className="text-sm font-semibold text-loko-text-primary">E-mail</div>
-              <div className="text-xs text-loko-text-muted">Системные события + резерв</div>
+              <div className="text-xs text-loko-text-muted">Админам + резерв</div>
+            </div>
+          </div>
+        </div>
+        <div className="card p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-white"><IconBell size={18} /></div>
+            <div>
+              <div className="text-sm font-semibold text-loko-text-primary">Telegram</div>
+              <div className="text-xs text-loko-text-muted">Мгновенные оповещения</div>
             </div>
           </div>
         </div>
@@ -53,8 +63,8 @@ export function AdminNotifications() {
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-bg-elevated text-loko-text-muted"><IconBell size={18} /></div>
             <div>
-              <div className="text-sm font-semibold text-loko-text-primary">SMS</div>
-              <div className="text-xs text-loko-text-muted">Не используется в MVP</div>
+              <div className="text-sm font-semibold text-loko-text-primary">Система</div>
+              <div className="text-xs text-loko-text-muted">Внутри админки</div>
             </div>
           </div>
         </div>
@@ -72,7 +82,7 @@ export function AdminNotifications() {
         {notifications.map((n: any) => (
           <div key={n.id} className="grid grid-cols-12 items-center gap-3 border-b border-loko-bg-border/40 px-4 py-3 text-sm last:border-b-0">
             <div className="col-span-2">
-              <span className={`badge ${n.channel === 'max' ? 'badge-pink' : 'badge-violet'}`}>{n.channel.toUpperCase()}</span>
+              <span className={`badge ${n.channel === 'max' ? 'badge-pink' : n.channel === 'email' ? 'badge-violet' : 'badge-success'}`}>{n.channel.toUpperCase()}</span>
             </div>
             <div className="col-span-4 text-loko-text-primary">{n.event}</div>
             <div className="col-span-3 text-xs text-loko-text-secondary">{n.recipient}</div>

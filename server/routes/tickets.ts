@@ -7,6 +7,18 @@ import { sendTelegramMessage } from '../services/telegram.js'
 export const ticketsRouter = Router()
 
 // ── GET /api/tickets ──────────────────────────────────────
+// ── GET /api/tickets/count — необработанные заявки ─
+ticketsRouter.get('/count', requireAuth, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*)::int FROM tickets WHERE status IN ('open', 'in_progress')`
+    )
+    res.json({ count: result.rows[0].count })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 ticketsRouter.get('/', requireAuth, async (req, res) => {
   try {
     let query = `
@@ -52,6 +64,12 @@ ticketsRouter.post('/', requireAuth, async (req, res) => {
     )
 
     const ticket = result.rows[0]
+
+    // Создаём системное уведомление для админки
+    await pool.query(
+      `INSERT INTO notifications (channel, event, recipient, status) VALUES ('system', $1, 'admin', 'delivered')`,
+      [`Новая заявка: ${subject}`],
+    )
 
     // Уведомления админу (email + Telegram)
     const admins = await pool.query(
@@ -120,6 +138,12 @@ ticketsRouter.patch('/:id', requireAdmin, async (req, res) => {
          <p>Тема: ${ticket.subject}</p>`
       )
     }
+
+    // Системное уведомление о смене статуса
+    await pool.query(
+      `INSERT INTO notifications (channel, event, recipient, status) VALUES ('system', $1, 'admin', 'delivered')`,
+      [`Заявка «${ticket.subject}» → ${status}`],
+    )
 
     res.json(ticket)
   } catch (err: any) {

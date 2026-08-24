@@ -3,6 +3,16 @@ import { pool } from '../db/pool.js'
 
 export const notificationsRouter = Router()
 
+/** GET /api/notifications/count — необработанные уведомления */
+notificationsRouter.get('/count', async (_req: Request, res: Response) => {
+  try {
+    const { rows } = await pool.query(`SELECT COUNT(*)::int FROM notifications WHERE status = 'pending'`)
+    res.json({ count: rows[0].count })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 /** GET /api/notifications */
 notificationsRouter.get('/', async (_req: Request, res: Response) => {
   try {

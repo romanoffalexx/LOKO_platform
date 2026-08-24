@@ -22,6 +22,10 @@ export function AdminSettings() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Предупреждение при смене email
+    if (form.email !== settings?.email) {
+      if (!confirm('При смене email следующий вход будет через новый email. Продолжить?')) return
+    }
     try {
       const updated = await adminSettingsApi.update(form)
       setSettings(updated)
@@ -54,6 +58,7 @@ export function AdminSettings() {
             <div>
               <label className="block text-xs text-loko-text-muted mb-1">Email</label>
               <input type="email" className="input w-full" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+              <p className="mt-1 text-[10px] text-loko-text-muted">Email используется для входа. Смена email изменит логин.</p>
             </div>
             <div>
               <label className="block text-xs text-loko-text-muted mb-1">Telegram username</label>

@@ -42,7 +42,7 @@ organizationsRouter.post('/', async (req: Request, res: Response) => {
     const { rows } = await pool.query(
       `INSERT INTO organizations (name, address, zone, logo, logo_color, phone, email, has_tablet, participates_in_offers, category, description, working_hours)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-      [name, address, zone ?? null, logo ?? '', logo_color ?? '#A855F7', phone ?? '', email ?? '', has_tablet ?? false, participates_in_offers ?? false, category ?? '', description ?? '', working_hours ?? ''],
+      [name, address, zone ?? '', logo ?? '', logo_color ?? '#A855F7', phone ?? '', email ?? '', has_tablet ?? false, participates_in_offers ?? false, category ?? '', description ?? '', working_hours ?? ''],
     )
     res.status(201).json(rows[0])
   } catch (err: any) {

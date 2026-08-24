@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { dashboardApi } from '@/lib/api'
 import {
-  IconArrowUp, IconArrowDown, IconChevronDown, IconDownload, IconRefresh,
+  IconArrowUp, IconArrowDown, IconChevronDown, IconRefresh,
   IconSpark, IconShield,
 } from '@/components/ui/icons'
 
@@ -163,7 +163,7 @@ const NetworkStatusWidget: FC<{ data: DashboardData['networkStatus'] }> = ({ dat
       <div className="mt-4 flex flex-col gap-3">
         {[
           { name: 'Планшеты', sub: `${data.tablets.online} устройств`, right: `${data.tablets.online} online`, badge: 'badge-success' },
-          { name: 'Мониторы', sub: 'Данные загружаются…', right: '—', badge: 'badge-neutral' },
+          { name: 'Мониторы', sub: `${data.orgsWithMonitors} организаций`, right: `${data.orgsWithMonitors}`, badge: 'badge-violet' },
           { name: 'Точки', sub: `${data.tablets.total} всего`, right: `${data.tablets.online}`, badge: 'badge-violet' },
         ].map((r) => (
           <div key={r.name} className="card-elevated flex items-center gap-4 p-3.5">
@@ -300,10 +300,7 @@ const PageHeader: FC<{ onRefresh: () => void; loading: boolean }> = ({ onRefresh
         <button className="rounded-lg px-3 py-1.5 text-loko-text-secondary hover:text-loko-text-primary">Месяц</button>
         <IconChevronDown size={16} className="ml-1 mr-2 text-loko-text-muted" />
       </div>
-      <button className="btn-ghost">
-        <IconDownload size={16} />
-        Экспорт
-      </button>
+
       <button className="btn-ghost" onClick={onRefresh} disabled={loading}>
         <IconRefresh size={16} className={loading ? 'animate-spin' : ''} />
       </button>

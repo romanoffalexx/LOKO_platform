@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { offersApi, organizationsApi } from '@/lib/api'
-import { IconSearch, IconFilter, IconDownload, IconPlus, IconCalendar, IconPin, IconClose } from '@/components/ui/icons'
+import { IconSearch, IconFilter, IconPlus, IconCalendar, IconPin, IconClose, IconDownload } from '@/components/ui/icons'
+import { toCsv, downloadCsv } from '@/lib/csv'
 
 export function AdminOffers() {
   const [offers, setOffers] = useState<any[]>([])
@@ -46,6 +47,21 @@ export function AdminOffers() {
     }
   }
 
+  const handleExport = () => {
+    const csv = toCsv(offers, [
+      { key: 'title', label: 'Название' },
+      { key: 'organization_name', label: 'Организация' },
+      { key: 'status', label: 'Статус' },
+      { key: 'zone', label: 'Зона' },
+      { key: 'total_issued', label: 'Выдано' },
+      { key: 'total_redeemed', label: 'Погашено' },
+      { key: 'weight', label: 'Вес' },
+      { key: 'starts_at', label: 'Начало' },
+      { key: 'ends_at', label: 'Конец' },
+    ])
+    downloadCsv(csv, `offers_${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -59,7 +75,7 @@ export function AdminOffers() {
             <input placeholder="Поиск акции…" className="w-full bg-transparent text-loko-text-primary placeholder:text-loko-text-muted focus:outline-none" />
           </div>
           <button className="btn-ghost"><IconFilter size={16} />Фильтры</button>
-          <button className="btn-ghost"><IconDownload size={16} /></button>
+          <button onClick={handleExport} className="btn-ghost" disabled={offers.length === 0}><IconDownload size={16} />Экспорт</button>
           <button onClick={() => setShowCreate(true)} className="btn-brand"><IconPlus size={16} />Создать акцию</button>
         </div>
       </div>

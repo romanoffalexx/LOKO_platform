@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { organizationsApi, invitationsApi } from '@/lib/api'
-import { IconPlus, IconSearch, IconFilter, IconDownload, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck } from '@/components/ui/icons'
+import { IconPlus, IconSearch, IconFilter, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck } from '@/components/ui/icons'
 
 export function AdminOrganizations() {
   const [orgs, setOrgs] = useState<any[]>([])

@@ -219,8 +219,8 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     const uniqueNum = Date.now().toString(36).toUpperCase().slice(-6)
     const couponCode = `${orgPrefix}-${uniqueNum}`
 
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 30)
+    // Срок купона = конец акции (offer.ends_at), а не +30 дней
+    const expiresAt = winner.ends_at ?? new Date(Date.now() + 30 * 86400000)
 
     const couponResult = await pool.query(
       `INSERT INTO coupons (code, user_id, offer_id, organization_id, source_tablet_id,

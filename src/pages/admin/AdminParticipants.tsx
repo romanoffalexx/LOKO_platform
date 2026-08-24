@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { participantsApi } from '@/lib/api'
-import { IconSearch, IconFilter, IconDownload, IconPlus, IconShield, IconCheck } from '@/components/ui/icons'
+import { toCsv, downloadCsv } from '@/lib/csv'
+import { IconSearch, IconFilter, IconPlus, IconShield, IconCheck, IconDownload } from '@/components/ui/icons'
 
 export function AdminParticipants() {
   const [participants, setParticipants] = useState<any[]>([])
@@ -32,6 +33,20 @@ export function AdminParticipants() {
     )
   }
 
+  const handleExport = () => {
+    const csv = toCsv(filtered, [
+      { key: 'name', label: 'Имя' },
+      { key: 'phone', label: 'Телефон' },
+      { key: 'source', label: 'Источник' },
+      { key: 'total_participations', label: 'Участий' },
+      { key: 'total_wins', label: 'Выигрышей' },
+      { key: 'pdn_consent', label: 'ПДн' },
+      { key: 'marketing_consent', label: 'Маркетинг' },
+      { key: 'created_at', label: 'Регистрация' },
+    ])
+    downloadCsv(csv, `participants_${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -49,7 +64,7 @@ export function AdminParticipants() {
               className="w-full bg-transparent text-loko-text-primary placeholder:text-loko-text-muted focus:outline-none"
             />
           </div>
-          <button className="btn-ghost"><IconDownload size={16} />Экспорт</button>
+          <button onClick={handleExport} className="btn-ghost" disabled={filtered.length === 0}><IconDownload size={16} />Экспорт CSV</button>
         </div>
       </div>
 

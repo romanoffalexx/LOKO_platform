@@ -12,7 +12,7 @@ invitationsRouter.get('/', requireAdmin, async (_req, res) => {
       `SELECT i.*, u.name as created_by_name, o.name as org_name
        FROM invitations i
        LEFT JOIN users u ON u.id = i.created_by
-       LEFT JOIN organizations o ON o.id = i.meta->>'org_id'
+       LEFT JOIN organizations o ON o.id = (i.meta->>'org_id')::uuid
        ORDER BY i.created_at DESC`
     )
     res.json(result.rows)

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   logo          VARCHAR(10)  DEFAULT '',          -- эмодзи/инициал
   logo_color    VARCHAR(7)   DEFAULT '#A855F7',   -- HEX-цвет
   address       VARCHAR(500) NOT NULL,
-  zone          VARCHAR(100) NOT NULL,
+  zone          VARCHAR(100) DEFAULT '',
   has_tablet    BOOLEAN      DEFAULT false,
   participates_in_offers BOOLEAN DEFAULT false,
   phone         VARCHAR(30)  DEFAULT '',
@@ -27,6 +27,10 @@ ALTER TABLE organizations
   ADD COLUMN IF NOT EXISTS logo_url      VARCHAR(500) DEFAULT '',
   ADD COLUMN IF NOT EXISTS status        VARCHAR(20) DEFAULT 'active'
     CHECK (status IN ('active','suspended'));
+
+-- Миграция: zone — убираем NOT NULL (фронтенд может не отправлять)
+ALTER TABLE organizations ALTER COLUMN zone DROP NOT NULL;
+ALTER TABLE organizations ALTER COLUMN zone SET DEFAULT '';
 
 -- Пользователи системы (админ, партнёры, планшеты)
 CREATE TABLE IF NOT EXISTS users (
@@ -240,7 +244,7 @@ CREATE TABLE IF NOT EXISTS geo_zones (
 -- Уведомления
 CREATE TABLE IF NOT EXISTS notifications (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  channel     VARCHAR(10) NOT NULL CHECK (channel IN ('max','email')),
+  channel     VARCHAR(10) NOT NULL CHECK (channel IN ('max','email','system')),
   event       VARCHAR(500) NOT NULL,
   recipient   VARCHAR(255) NOT NULL,
   status      VARCHAR(20) DEFAULT 'pending'
@@ -274,3 +278,10 @@ CREATE INDEX IF NOT EXISTS idx_coupons_org         ON coupons(organization_id);
 CREATE INDEX IF NOT EXISTS idx_leads_org           ON leads(organization_id);
 CREATE INDEX IF NOT EXISTS idx_participants_phone  ON participants(phone);
 CREATE INDEX IF NOT EXISTS idx_tablets_org         ON tablets(organization_id);
+
+-- ============================================================
+-- Миграции (идемпотентные)
+-- ============================================================
+-- Расширение channel для поддержки system-уведомлений
+ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;
+ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel IN ('max','email','system'));

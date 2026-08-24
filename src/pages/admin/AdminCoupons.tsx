@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { couponsApi } from '@/lib/api'
-import { IconSearch, IconFilter, IconDownload, IconClock } from '@/components/ui/icons'
+import { toCsv, downloadCsv } from '@/lib/csv'
+import { IconSearch, IconFilter, IconClock, IconDownload } from '@/components/ui/icons'
 
 export function AdminCoupons() {
   const [coupons, setCoupons] = useState<any[]>([])
@@ -17,6 +18,20 @@ export function AdminCoupons() {
   const redeemed = coupons.filter(c => c.status === 'redeemed').length
   const expired = coupons.filter(c => c.status === 'expired').length
 
+  const handleExport = () => {
+    const csv = toCsv(coupons, [
+      { key: 'code', label: 'Код' },
+      { key: 'user_name', label: 'Клиент' },
+      { key: 'user_phone', label: 'Телефон' },
+      { key: 'offer_title', label: 'Акция' },
+      { key: 'organization_name', label: 'Организация' },
+      { key: 'source_point', label: 'Точка' },
+      { key: 'status', label: 'Статус' },
+      { key: 'expires_at', label: 'Срок' },
+    ])
+    downloadCsv(csv, `coupons_${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -30,7 +45,7 @@ export function AdminCoupons() {
             <input placeholder="Код купона…" className="w-full bg-transparent text-loko-text-primary placeholder:text-loko-text-muted focus:outline-none" />
           </div>
           <button className="btn-ghost"><IconFilter size={16} />Фильтры</button>
-          <button className="btn-ghost"><IconDownload size={16} />Экспорт</button>
+          <button onClick={handleExport} className="btn-ghost" disabled={coupons.length === 0}><IconDownload size={16} />Экспорт CSV</button>
         </div>
       </div>
 

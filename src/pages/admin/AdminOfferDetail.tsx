@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { offersApi, pointOffersApi, pointsApi } from '@/lib/api'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
-  IconCheck, IconPlus, IconDownload, IconClose, IconGift,
+  IconCheck, IconPlus, IconClose, IconGift,
 } from '@/components/ui/icons'
 
 export function AdminOfferDetail() {

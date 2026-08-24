@@ -22,6 +22,14 @@ couponsRouter.get('/', async (req: Request, res: Response) => {
     const params: any[] = []
     let idx = 1
 
+    // Партнёр видит только купоны своей организации (или акции своей организации)
+    if (req.session.role === 'partner') {
+      const myOrgId = req.session.organizationId!
+      conditions.push(`(c.organization_id = $${idx} OR c.offer_id IN (SELECT id FROM offers WHERE organization_id = $${idx}))`)
+      params.push(myOrgId)
+      idx++
+    }
+
     if (status)          { conditions.push(`c.status = $${idx++}`);          params.push(status) }
     if (organization_id) { conditions.push(`c.organization_id = $${idx++}`); params.push(organization_id) }
     if (user_id)         { conditions.push(`c.user_id = $${idx++}`);         params.push(user_id) }
@@ -52,6 +60,23 @@ couponsRouter.get('/:id', async (req: Request, res: Response) => {
       [req.params.id],
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Не найдено' })
+
+    // Партнёр видит только купоны своей организации
+    if (req.session.role === 'partner') {
+      const myOrgId = req.session.organizationId!
+      const coupon = rows[0]
+      if (coupon.organization_id !== myOrgId) {
+        // Проверяем: акция купона принадлежит организации партнёра?
+        const offerCheck = await pool.query(
+          'SELECT id FROM offers WHERE id = $1 AND organization_id = $2',
+          [coupon.offer_id, myOrgId]
+        )
+        if (offerCheck.rows.length === 0) {
+          return res.status(403).json({ error: 'Доступ запрещён' })
+        }
+      }
+    }
+
     res.json(rows[0])
   } catch (err: any) {
     res.status(500).json({ error: err.message })
@@ -113,11 +138,35 @@ couponsRouter.post('/', async (req: Request, res: Response) => {
 
 /**
  * POST /api/coupons/:id/redeem — погасить купон.
- * Body: { redeemed_by }
+ * Проверяет: статус = issued, срок не истёк.
  */
 couponsRouter.post('/:id/redeem', async (req: Request, res: Response) => {
   try {
     const { redeemed_by } = req.body
+
+    // Сначала проверяем срок купона
+    const { rows: couponCheck } = await pool.query(
+      `SELECT * FROM coupons WHERE id = $1`,
+      [req.params.id],
+    )
+    if (couponCheck.length === 0) {
+      return res.status(404).json({ error: 'Купон не найден' })
+    }
+
+    const coupon = couponCheck[0]
+
+    if (coupon.status !== 'issued') {
+      return res.status(400).json({ error: 'Купон уже погашён или отменён' })
+    }
+
+    // Проверка срока действия
+    if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+      // Автоматически помечаем как истёкший
+      await pool.query(`UPDATE coupons SET status = 'expired' WHERE id = $1`, [req.params.id])
+      return res.status(400).json({ error: 'Срок действия купона истёк' })
+    }
+
+    // Погашаем
     const { rows } = await pool.query(
       `UPDATE coupons SET status = 'redeemed', redeemed_at = now(), redeemed_by = $1
        WHERE id = $2 AND status = 'issued' RETURNING *`,
@@ -128,6 +177,12 @@ couponsRouter.post('/:id/redeem', async (req: Request, res: Response) => {
     // Обновляем счётчик погашений
     await pool.query(`UPDATE offers SET total_redeemed = total_redeemed + 1 WHERE id = $1`, [rows[0].offer_id])
     await pool.query(`UPDATE leads SET redeemed = true WHERE coupon_id = $1`, [req.params.id])
+
+    // Системное уведомление
+    await pool.query(
+      `INSERT INTO notifications (channel, event, recipient, status) VALUES ('system', $1, 'admin', 'delivered')`,
+      [`Купон ${rows[0].code} погашён`],
+    )
 
     res.json(rows[0])
   } catch (err: any) {

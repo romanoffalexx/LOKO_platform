@@ -3,8 +3,13 @@ import { pool } from '../db/pool.js'
 
 export const participantsRouter = Router()
 
-/** GET /api/participants — список участников (фильтр: phone — поиск по последним цифрам) */
+/** GET /api/participants — список участников (только admin/tablet; партнёрам — 403) */
 participantsRouter.get('/', async (req: Request, res: Response) => {
+  // Партнёр не имеет доступа к общей клиентской базе
+  if (req.session.role === 'partner') {
+    return res.status(403).json({ error: 'Доступ запрещён' })
+  }
+
   try {
     const { limit, offset, phone } = req.query
     let sql = `SELECT * FROM participants`
@@ -26,8 +31,12 @@ participantsRouter.get('/', async (req: Request, res: Response) => {
   }
 })
 
-/** GET /api/participants/:id */
+/** GET /api/participants/:id — только admin/tablet */
 participantsRouter.get('/:id', async (req: Request, res: Response) => {
+  if (req.session.role === 'partner') {
+    return res.status(403).json({ error: 'Доступ запрещён' })
+  }
+
   try {
     const { rows } = await pool.query(`SELECT * FROM participants WHERE id = $1`, [req.params.id])
     if (rows.length === 0) return res.status(404).json({ error: 'Не найден' })

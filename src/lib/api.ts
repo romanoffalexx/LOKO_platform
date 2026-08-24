@@ -178,6 +178,9 @@ export const notificationsApi = {
   list: () =>
     request<any[]>('/notifications'),
 
+  count: () =>
+    request<{ count: number }>('/notifications/count'),
+
   create: (data: Record<string, any>) =>
     request<any>('/notifications', { method: 'POST', body: JSON.stringify(data) }),
 
@@ -283,12 +286,17 @@ export const ticketsApi = {
   list: () =>
     request<any[]>('/tickets'),
 
+  count: () =>
+    request<{ count: number }>('/tickets/count'),
+
   create: (data: { subject: string; message: string }) =>
     request<any>('/tickets', { method: 'POST', body: JSON.stringify(data) }),
 
   updateStatus: (id: string, status: string) =>
     request<any>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 }
+
+
 
 // ─── Admin Settings ────────────────────────────────────────
 export const adminSettingsApi = {

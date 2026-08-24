@@ -100,10 +100,32 @@ app.use('/api/tickets',         ticketsRouter)
 app.use('/api/tablet',          tabletAuthRouter)
 app.use('/api/admin',           adminSettingsRouter)
 
+// ─── Периодические задачи ──────────────────────────────────
+
+/** Автоистечение купонов: обновляем статус expired каждый час */
+async function expireCoupons() {
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE coupons SET status = 'expired'
+       WHERE status = 'issued' AND expires_at < now()`
+    )
+    if (rowCount && rowCount > 0) {
+      console.log(`[Cron] Истекло купонов: ${rowCount}`)
+    }
+  } catch (err: any) {
+    console.error('[Cron] Ошибка автоистечения:', err.message)
+  }
+}
+
+// Запускаем при старте и каждые 60 минут
+setInterval(expireCoupons, 60 * 60 * 1000)
+
 // ─── Start ───────────────────────────────────────────────────
 async function start() {
   try {
     await initDatabase()
+    // Запускаем автоистечение сразу при старте
+    await expireCoupons()
     app.listen(PORT, () => {
       console.log(`\n  🚀 ЛОКО API → http://localhost:${PORT}`)
       console.log(`  📊 Health   → http://localhost:${PORT}/api/health\n`)

@@ -1,7 +1,8 @@
-import { type FC, type ReactNode } from 'react'
+import { type FC, type ReactNode, useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation, Link, useNavigate } from 'react-router-dom'
 import { YaokoLogo } from '@/components/brand/YaokoLogo'
 import { useAuth } from '@/lib/auth'
+import { ticketsApi, notificationsApi } from '@/lib/api'
 import {
   IconDashboard, IconBuilding, IconUsers, IconGift, IconTicket, IconPin,
   IconTablet, IconMonitor, IconMap, IconInbox, IconBell, IconSettings,
@@ -28,12 +29,11 @@ const infraNav: NavItem[] = [
   { to: '/admin/points', label: 'Точки', icon: <IconPin size={18} /> },
   { to: '/admin/tablets', label: 'Планшеты', icon: <IconTablet size={18} /> },
   { to: '/admin/monitors', label: 'Мониторы', icon: <IconMonitor size={18} /> },
-  // { to: '/admin/geography', label: 'География', icon: <IconMap size={18} /> },  // скрыто — не используется
 ]
 
-const systemNav: NavItem[] = [
-  { to: '/admin/requests', label: 'Заявки', icon: <IconInbox size={18} />, badge: '3' },
-  { to: '/admin/notifications', label: 'Уведомления', icon: <IconBell size={18} />, badge: '5' },
+const getSystemNav = (ticketCount: number, notifCount: number): NavItem[] => [
+  { to: '/admin/requests', label: 'Заявки', icon: <IconInbox size={18} />, badge: ticketCount > 0 ? String(ticketCount) : undefined },
+  { to: '/admin/notifications', label: 'Уведомления', icon: <IconBell size={18} />, badge: notifCount > 0 ? String(notifCount) : undefined },
   { to: '/admin/settings', label: 'Настройки', icon: <IconSettings size={18} /> },
 ]
 
@@ -86,6 +86,19 @@ export const AdminLayout: FC = () => {
   const crumbs = useBreadcrumb()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [ticketCount, setTicketCount] = useState(0)
+  const [notifCount, setNotifCount] = useState(0)
+  const systemNav = getSystemNav(ticketCount, notifCount)
+
+  useEffect(() => {
+    const fetchCounts = () => {
+      ticketsApi.count().then(d => setTicketCount(d.count)).catch(() => {})
+      notificationsApi.count().then(d => setNotifCount(d.count)).catch(() => {})
+    }
+    fetchCounts()
+    const interval = setInterval(fetchCounts, 30000) // обновляем каждые 30 сек
+    return () => clearInterval(interval)
+  }, [])
 
   const handleLogout = async () => {
     await logout()
