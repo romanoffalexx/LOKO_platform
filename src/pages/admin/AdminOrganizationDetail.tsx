@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { organizationsApi, offersApi, pointsApi } from '@/lib/api'
+import { organizationsApi, offersApi, pointsApi, tabletsApi, screensApi, couponsApi, leadsApi } from '@/lib/api'
 import { validateLogo } from '@/lib/image'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
@@ -12,6 +12,17 @@ export function AdminOrganizationDetail() {
   const [org, setOrg] = useState<any>(null)
   const [orgOffers, setOrgOffers] = useState<any[]>([])
   const [allOffers, setAllOffers] = useState<any[]>([])
+  const [tablets, setTablets] = useState<any[]>([])
+  const [screens, setScreens] = useState<any[]>([])
+  const [coupons, setCoupons] = useState<any[]>([])
+  const [leads, setLeads] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'offers' | 'tablets' | 'monitors' | 'coupons' | 'participants'>('offers')
+  const [showTabletForm, setShowTabletForm] = useState(false)
+  const [showMonitorForm, setShowMonitorForm] = useState(false)
+  const [savingTablet, setSavingTablet] = useState(false)
+  const [savingMonitor, setSavingMonitor] = useState(false)
+  const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', zone: '' })
+  const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
   const [loading, setLoading] = useState(true)
   const [showPointForm, setShowPointForm] = useState(false)
   const [showOfferForm, setShowOfferForm] = useState(false)
@@ -36,10 +47,18 @@ export function AdminOrganizationDetail() {
     Promise.all([
       organizationsApi.get(id),
       offersApi.list(),
-    ]).then(([orgData, offersData]) => {
+      tabletsApi.list({ organization_id: id }),
+      screensApi.list({ organization_id: id }),
+      couponsApi.list({ organization_id: id, limit: 50 }),
+      leadsApi.list({ organization_id: id }),
+    ]).then(([orgData, offersData, tabletsData, screensData, couponsData, leadsData]) => {
       setOrg(orgData)
       setOrgOffers(offersData.filter((o: any) => o.organization_id === id))
       setAllOffers(offersData)
+      setTablets(tabletsData)
+      setScreens(screensData)
+      setCoupons(couponsData)
+      setLeads(leadsData)
     }).catch(err => console.error('[OrgDetail]', err))
       .finally(() => setLoading(false))
   }, [id])
@@ -109,6 +128,62 @@ export function AdminOrganizationDetail() {
     } finally {
       setSavingOffer(false)
     }
+  }
+
+  const handleCreateTablet = async () => {
+    if (!id || !tabletForm.name) return
+    setSavingTablet(true)
+    try {
+      await tabletsApi.create({ ...tabletForm, organization_id: id })
+      setShowTabletForm(false)
+      setTabletForm({ name: '', serial: '', point: '', zone: '' })
+      const data = await tabletsApi.list({ organization_id: id })
+      setTablets(data)
+    } catch (err) {
+      console.error('[Tablet create]', err)
+    } finally {
+      setSavingTablet(false)
+    }
+  }
+
+  const handleCreateMonitor = async () => {
+    if (!id || !monitorForm.name) return
+    setSavingMonitor(true)
+    try {
+      await screensApi.create({ ...monitorForm, organization_id: id })
+      setShowMonitorForm(false)
+      setMonitorForm({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
+      const data = await screensApi.list({ organization_id: id })
+      setScreens(data)
+    } catch (err) {
+      console.error('[Monitor create]', err)
+    } finally {
+      setSavingMonitor(false)
+    }
+  }
+
+  const handleDeleteTablet = async (tabletId: string) => {
+    if (!confirm('Удалить планшет?')) return
+    try {
+      await tabletsApi.delete(tabletId)
+      setTablets(prev => prev.filter(t => t.id !== tabletId))
+    } catch (err) { console.error('[Tablet delete]', err) }
+  }
+
+  const handleDeleteMonitor = async (monitorId: string) => {
+    if (!confirm('Удалить монитор?')) return
+    try {
+      await screensApi.delete(monitorId)
+      setScreens(prev => prev.filter(s => s.id !== monitorId))
+    } catch (err) { console.error('[Monitor delete]', err) }
+  }
+
+  const handleCancelCoupon = async (couponId: string) => {
+    if (!confirm('Отменить купон?')) return
+    try {
+      await couponsApi.cancel(couponId)
+      setCoupons(prev => prev.map(c => c.id === couponId ? { ...c, status: 'cancelled' } : c))
+    } catch (err) { console.error('[Coupon cancel]', err) }
   }
 
   if (loading) return <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>
@@ -340,63 +415,280 @@ export function AdminOrganizationDetail() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Свои акции */}
-        <div className="card p-5 lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-base font-semibold text-loko-text-primary">Свои акции</div>
-            <button onClick={() => { setShowOfferForm(!showOfferForm); setShowPointForm(false) }} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Создать</button>
+      {/* Вкладки */}
+      <div className="mt-6">
+        <div className="flex flex-wrap gap-1 rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-1">
+          {[
+            { key: 'offers', label: 'Акции', count: orgOffers.length },
+            { key: 'tablets', label: 'Планшеты', count: tablets.length },
+            { key: 'monitors', label: 'Мониторы', count: screens.length },
+            { key: 'coupons', label: 'Купоны', count: coupons.length },
+            { key: 'participants', label: 'Участники', count: leads.length },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                activeTab === tab.key
+                  ? 'bg-loko-bg-card text-loko-text-primary shadow-sm'
+                  : 'text-loko-text-muted hover:text-loko-text-secondary'
+              }`}
+            >
+              {tab.label}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                activeTab === tab.key ? 'bg-loko-pink/10 text-loko-pink' : 'bg-loko-bg-border/50 text-loko-text-muted'
+              }`}>{tab.count}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Содержимое вкладок */}
+      <div className="mt-4">
+        {/* ── Акции ── */}
+        {activeTab === 'offers' && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="card p-5 lg:col-span-2">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-base font-semibold text-loko-text-primary">Свои акции</div>
+                <button onClick={() => { setShowOfferForm(!showOfferForm); setShowPointForm(false) }} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Создать</button>
+              </div>
+              <div className="flex flex-col gap-2">
+                {orgOffers.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+                    У организации пока нет своих акций
+                  </div>
+                )}
+                {orgOffers.map(o => (
+                  <Link to={`/admin/offers/${o.id}`} key={o.id} className="card-elevated group flex items-center gap-3 p-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl" style={{ background: o.bg_gradient }}>
+                      {o.emoji}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-loko-text-primary">{o.title}</div>
+                      <div className="text-xs text-loko-text-muted">
+                        {o.starts_at?.slice(0, 10)} → {o.ends_at?.slice(0, 10)} · {o.total_issued} выдано · {o.total_redeemed} погашено
+                      </div>
+                    </div>
+                    <span className={`badge ${o.status === 'active' ? 'badge-success' : o.status === 'scheduled' ? 'badge-violet' : 'badge-neutral'}`}>
+                      {o.status === 'active' ? 'идёт' : o.status === 'scheduled' ? 'скоро' : 'архив'}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <div className="card p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-base font-semibold text-loko-text-primary">Можно показывать</div>
+                <span className="text-xs text-loko-text-muted">галочками</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {allOffers.filter(o => o.organization_id !== id).map(o => {
+                  const checked = (o.allowed_org_ids ?? []).includes(id)
+                  return (
+                    <label key={o.id} className="card-elevated flex cursor-pointer items-center gap-3 p-3 hover:border-loko-pink/40">
+                      <input type="checkbox" defaultChecked={checked} className="peer sr-only" />
+                      <span className="flex h-5 w-5 items-center justify-center rounded-md border border-loko-bg-border bg-loko-bg-base/60 peer-checked:border-loko-pink peer-checked:bg-gradient-brand">
+                        {checked && <IconCheck size={12} className="text-white" />}
+                      </span>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" style={{ background: o.bg_gradient }}>{o.emoji}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-loko-text-primary">{o.title}</div>
+                        <div className="text-xs text-loko-text-muted">{o.organization_name}</div>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col gap-2">
-            {orgOffers.length === 0 && (
-              <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
-                У организации пока нет своих акций
+        )}
+
+        {/* ── Планшеты ── */}
+        {activeTab === 'tablets' && (
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold text-loko-text-primary">Планшеты</div>
+              <button onClick={() => setShowTabletForm(!showTabletForm)} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Добавить</button>
+            </div>
+            {showTabletForm && (
+              <div className="mb-4 rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+                    <input value={tabletForm.name} onChange={e => setTabletForm(p => ({ ...p, name: e.target.value }))} className="input w-full" placeholder="Планшет 1" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Серийный номер</label>
+                    <input value={tabletForm.serial} onChange={e => setTabletForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" placeholder="SN-001" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
+                    <input value={tabletForm.point} onChange={e => setTabletForm(p => ({ ...p, point: e.target.value }))} className="input w-full" placeholder="Точка 1" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+                    <input value={tabletForm.zone} onChange={e => setTabletForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="center" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleCreateTablet} disabled={savingTablet || !tabletForm.name} className="btn-brand disabled:opacity-50">{savingTablet ? 'Создание…' : 'Создать'}</button>
+                  <button onClick={() => setShowTabletForm(false)} className="btn-ghost">Отмена</button>
+                </div>
               </div>
             )}
-            {orgOffers.map(o => (
-              <Link to={`/admin/offers/${o.id}`} key={o.id} className="card-elevated group flex items-center gap-3 p-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl" style={{ background: o.bg_gradient }}>
-                  {o.emoji}
+            <div className="flex flex-col gap-2">
+              {tablets.length === 0 && (
+                <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+                  У организации пока нет планшетов
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-loko-text-primary">{o.title}</div>
-                  <div className="text-xs text-loko-text-muted">
-                    {o.starts_at?.slice(0, 10)} → {o.ends_at?.slice(0, 10)} · {o.total_issued} выдано · {o.total_redeemed} погашено
+              )}
+              {tablets.map(t => (
+                <div key={t.id} className="card-elevated flex items-center gap-3 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-pink/10 text-loko-pink">
+                    <IconTablet size={20} />
                   </div>
-                </div>
-                <span className={`badge ${o.status === 'active' ? 'badge-success' : o.status === 'scheduled' ? 'badge-violet' : 'badge-neutral'}`}>
-                  {o.status === 'active' ? 'идёт' : o.status === 'scheduled' ? 'скоро' : 'архив'}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Разрешённые чужие акции */}
-        <div className="card p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="text-base font-semibold text-loko-text-primary">Можно показывать</div>
-            <span className="text-xs text-loko-text-muted">галочками</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {allOffers.filter(o => o.organization_id !== id).map(o => {
-              const checked = (o.allowed_org_ids ?? []).includes(id)
-              return (
-                <label key={o.id} className="card-elevated flex cursor-pointer items-center gap-3 p-3 hover:border-loko-pink/40">
-                  <input type="checkbox" defaultChecked={checked} className="peer sr-only" />
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md border border-loko-bg-border bg-loko-bg-base/60 peer-checked:border-loko-pink peer-checked:bg-gradient-brand">
-                    {checked && <IconCheck size={12} className="text-white" />}
-                  </span>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" style={{ background: o.bg_gradient }}>{o.emoji}</div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-loko-text-primary">{o.title}</div>
-                    <div className="text-xs text-loko-text-muted">{o.organization_name}</div>
+                    <div className="truncate text-sm font-semibold text-loko-text-primary">{t.name}</div>
+                    <div className="text-xs text-loko-text-muted">
+                      {t.serial && `SN: ${t.serial} · `}{t.point || '—'} · {t.zone || '—'}
+                    </div>
                   </div>
-                </label>
-              )
-            })}
+                  <span className={`badge ${t.status === 'online' ? 'badge-success' : 'badge-neutral'}`}>{t.status || 'offline'}</span>
+                  <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Мониторы ── */}
+        {activeTab === 'monitors' && (
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold text-loko-text-primary">Мониторы</div>
+              <button onClick={() => setShowMonitorForm(!showMonitorForm)} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Добавить</button>
+            </div>
+            {showMonitorForm && (
+              <div className="mb-4 rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-4 space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+                    <input value={monitorForm.name} onChange={e => setMonitorForm(p => ({ ...p, name: e.target.value }))} className="input w-full" placeholder="Монитор 1" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
+                    <input value={monitorForm.point} onChange={e => setMonitorForm(p => ({ ...p, point: e.target.value }))} className="input w-full" placeholder="Точка 1" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Дата начала</label>
+                    <input type="date" value={monitorForm.starts_at} onChange={e => setMonitorForm(p => ({ ...p, starts_at: e.target.value }))} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Дата окончания</label>
+                    <input type="date" value={monitorForm.ends_at} onChange={e => setMonitorForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-loko-text-muted mb-1">Контент</label>
+                  <textarea value={monitorForm.content} onChange={e => setMonitorForm(p => ({ ...p, content: e.target.value }))} className="input w-full min-h-[60px] resize-y" placeholder="Описание контента" />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleCreateMonitor} disabled={savingMonitor || !monitorForm.name} className="btn-brand disabled:opacity-50">{savingMonitor ? 'Создание…' : 'Создать'}</button>
+                  <button onClick={() => setShowMonitorForm(false)} className="btn-ghost">Отмена</button>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              {screens.length === 0 && (
+                <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+                  У организации пока нет мониторов
+                </div>
+              )}
+              {screens.map(s => (
+                <div key={s.id} className="card-elevated flex items-center gap-3 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500 text-lg font-bold">🖥</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-loko-text-primary">{s.name}</div>
+                    <div className="text-xs text-loko-text-muted">
+                      {s.point || '—'}{s.starts_at && ` · ${s.starts_at.slice(0, 10)} → ${s.ends_at?.slice(0, 10)}`}
+                    </div>
+                  </div>
+                  <span className={`badge ${s.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{s.status || 'active'}</span>
+                  <button onClick={() => handleDeleteMonitor(s.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Купоны ── */}
+        {activeTab === 'coupons' && (
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold text-loko-text-primary">Купоны</div>
+              <span className="text-xs text-loko-text-muted">{coupons.length} шт.</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {coupons.length === 0 && (
+                <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+                  У организации пока нет купонов
+                </div>
+              )}
+              {coupons.map(c => (
+                <div key={c.id} className="card-elevated flex items-center gap-3 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 text-lg font-bold">🎟</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-loko-text-primary">{c.code}</div>
+                    <div className="text-xs text-loko-text-muted">
+                      {c.offer_title || '—'} · {c.user_name || '—'} {c.user_phone && `· ${c.user_phone}`}
+                    </div>
+                  </div>
+                  <span className={`badge ${c.status === 'active' ? 'badge-success' : c.status === 'redeemed' ? 'badge-violet' : c.status === 'cancelled' ? 'badge-danger' : 'badge-neutral'}`}>
+                    {c.status === 'active' ? 'активен' : c.status === 'redeemed' ? 'погашён' : c.status === 'cancelled' ? 'отменён' : c.status}
+                  </span>
+                  {c.status === 'active' && (
+                    <button onClick={() => handleCancelCoupon(c.id)} className="text-xs text-loko-text-muted hover:text-loko-danger">Отменить</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Участники ── */}
+        {activeTab === 'participants' && (
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold text-loko-text-primary">Участники / Лиды</div>
+              <span className="text-xs text-loko-text-muted">{leads.length} чел.</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {leads.length === 0 && (
+                <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+                  У организации пока нет участников
+                </div>
+              )}
+              {leads.map(l => (
+                <div key={l.id} className="card-elevated flex items-center gap-3 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 text-sm font-bold">
+                    {l.client_name?.[0] || '?'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-loko-text-primary">{l.client_name || '—'}</div>
+                    <div className="text-xs text-loko-text-muted">
+                      {l.client_phone || '—'} · {l.offer_title || '—'}{l.source_point && ` · ${l.source_point}`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {l.contacted && <span className="badge badge-violet">связались</span>}
+                    {l.redeemed && <span className="badge badge-success">погашено</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Подсказка о безопасности */}

@@ -194,8 +194,12 @@ export const notificationsApi = {
 
 // ─── Экраны / Мониторы ───────────────────────────────────────
 export const screensApi = {
-  list: () =>
-    request<any[]>('/screens'),
+  list: (params?: { organization_id?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.organization_id) qs.set('organization_id', params.organization_id)
+    const s = qs.toString()
+    return request<any[]>(`/screens${s ? `?${s}` : ''}`)
+  },
 
   get: (id: string) =>
     request<any>(`/screens/${id}`),

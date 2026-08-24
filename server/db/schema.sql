@@ -283,6 +283,6 @@ CREATE INDEX IF NOT EXISTS idx_tablets_org         ON tablets(organization_id);
 -- Миграции (идемпотентные)
 -- ============================================================
 -- Расширение channel: max → telegram, добавлен system
+UPDATE notifications SET channel = 'telegram' WHERE channel = 'max';
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel IN ('telegram','email','system'));
-UPDATE notifications SET channel = 'telegram' WHERE channel = 'max';

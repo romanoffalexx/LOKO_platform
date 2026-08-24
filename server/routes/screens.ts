@@ -4,13 +4,20 @@ import { pool } from '../db/pool.js'
 export const screensRouter = Router()
 
 /** GET /api/screens */
-screensRouter.get('/', async (_req: Request, res: Response) => {
+screensRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT s.*, org.name AS organization_name
-       FROM screens s LEFT JOIN organizations org ON org.id = s.organization_id
-       ORDER BY s.created_at DESC`,
-    )
+    const { organization_id } = req.query
+    let sql = `
+      SELECT s.*, org.name AS organization_name
+      FROM screens s LEFT JOIN organizations org ON org.id = s.organization_id
+    `
+    const conditions: string[] = []
+    const params: any[] = []
+    let idx = 1
+    if (organization_id) { conditions.push(`s.organization_id = $${idx++}`); params.push(organization_id) }
+    if (conditions.length) sql += ` WHERE ` + conditions.join(' AND ')
+    sql += ` ORDER BY s.created_at DESC`
+    const { rows } = await pool.query(sql, params)
     res.json(rows)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
