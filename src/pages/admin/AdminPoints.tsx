@@ -272,7 +272,7 @@ export function AdminPoints() {
                     )}
                     {pointTablets.map(t => (
                       <div key={t.id} className="space-y-2">
-                        {tabletEdit?.id === t.id ? (
+                        {tabletEdit && tabletEdit.id === t.id ? (
                           <div className="space-y-2">
                             <div>
                               <label className="block text-[10px] text-loko-text-muted mb-1">Логин</label>
