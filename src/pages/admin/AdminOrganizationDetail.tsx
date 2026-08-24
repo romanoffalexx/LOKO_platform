@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { organizationsApi, offersApi, pointsApi } from '@/lib/api'
+import { validateLogo } from '@/lib/image'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
-  IconCheck, IconPlus, IconClose,
+  IconCheck, IconPlus, IconClose, IconEdit,
 } from '@/components/ui/icons'
 
 export function AdminOrganizationDetail() {
@@ -16,6 +17,11 @@ export function AdminOrganizationDetail() {
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [savingPoint, setSavingPoint] = useState(false)
   const [savingOffer, setSavingOffer] = useState(false)
+  const [showEditOrg, setShowEditOrg] = useState(false)
+  const [savingOrg, setSavingOrg] = useState(false)
+  const [editForm, setEditForm] = useState({
+    name: '', address: '', phone: '', email: '', zone: '', category: '', description: '', working_hours: '', logo: '', logo_color: '#A855F7',
+  })
   const [pointForm, setPointForm] = useState({
     name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false,
   })
@@ -37,6 +43,32 @@ export function AdminOrganizationDetail() {
     }).catch(err => console.error('[OrgDetail]', err))
       .finally(() => setLoading(false))
   }, [id])
+
+  const openEditOrg = () => {
+    setEditForm({
+      name: org.name || '', address: org.address || '', phone: org.phone || '',
+      email: org.email || '', zone: org.zone || '', category: org.category || '',
+      description: org.description || '', working_hours: org.working_hours || '',
+      logo: org.logo || '', logo_color: org.logo_color || '#A855F7',
+    })
+    setShowEditOrg(true)
+    setShowPointForm(false)
+    setShowOfferForm(false)
+  }
+
+  const handleEditOrg = async () => {
+    if (!id || !editForm.name || !editForm.address) return
+    setSavingOrg(true)
+    try {
+      const updated = await organizationsApi.update(id, editForm)
+      setOrg({ ...org, ...updated })
+      setShowEditOrg(false)
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setSavingOrg(false)
+    }
+  }
 
   const handleCreatePoint = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,10 +132,10 @@ export function AdminOrganizationDetail() {
         <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-5">
             <div
-              className="flex h-20 w-20 items-center justify-center rounded-3xl text-2xl font-bold text-white shadow-glow-soft"
+              className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl text-2xl font-bold text-white shadow-glow-soft"
               style={{ background: `linear-gradient(135deg, ${org.logo_color ?? '#A855F7'} 0%, #A855F7 100%)` }}
             >
-              {org.logo || org.name[0]}
+              {org.logo?.startsWith('data:') ? <img src={org.logo} alt="" className="h-full w-full object-cover" /> : (org.logo || org.name[0])}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -120,8 +152,9 @@ export function AdminOrganizationDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { setShowPointForm(!showPointForm); setShowOfferForm(false) }} className="btn-outline"><IconPlus size={16} />Точка</button>
-            <button onClick={() => { setShowOfferForm(!showOfferForm); setShowPointForm(false) }} className="btn-brand"><IconPlus size={16} />Акция</button>
+            <button onClick={openEditOrg} className="btn-ghost"><IconEdit size={16} />Изменить</button>
+            <button onClick={() => { setShowPointForm(!showPointForm); setShowOfferForm(false); setShowEditOrg(false) }} className="btn-outline"><IconPlus size={16} />Точка</button>
+            <button onClick={() => { setShowOfferForm(!showOfferForm); setShowPointForm(false); setShowEditOrg(false) }} className="btn-brand"><IconPlus size={16} />Акция</button>
           </div>
         </div>
 
@@ -139,6 +172,79 @@ export function AdminOrganizationDetail() {
           ))}
         </div>
       </div>
+
+      {/* Форма редактирования организации */}
+      {showEditOrg && (
+        <div className="card mt-4 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-loko-text-primary">Редактирование организации</h3>
+            <button onClick={() => setShowEditOrg(false)} className="text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+              <input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs text-loko-text-muted mb-1">Лого (200×200, ≤100 КБ)</label>
+                <input type="file" accept="image/*" onChange={async e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const dataUrl = await validateLogo(file)
+                    setEditForm(p => ({ ...p, logo: dataUrl }))
+                  } catch (err: any) { alert(err.message) }
+                }} className="input w-full text-sm" />
+              </div>
+              <div className="w-20">
+                <label className="block text-xs text-loko-text-muted mb-1">Цвет</label>
+                <input type="color" value={editForm.logo_color} onChange={e => setEditForm(p => ({ ...p, logo_color: e.target.value }))} className="h-[38px] w-full cursor-pointer rounded-lg border border-loko-bg-border" />
+              </div>
+              <div
+                className="flex h-[38px] w-[38px] items-center justify-center overflow-hidden rounded-xl text-base font-bold text-white"
+                style={{ background: editForm.logo_color }}
+              >
+                {editForm.logo?.startsWith('data:') ? <img src={editForm.logo} alt="logo" className="h-full w-full object-cover" /> : (editForm.logo || editForm.name?.[0] || '?')}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Адрес *</label>
+              <input value={editForm.address} onChange={e => setEditForm(p => ({ ...p, address: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Телефон</label>
+              <input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Email</label>
+              <input type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+              <input value={editForm.zone} onChange={e => setEditForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="center, north…" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Категория</label>
+              <input value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} className="input w-full" placeholder="pizzeria, coffee…" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Часы работы</label>
+              <input value={editForm.working_hours} onChange={e => setEditForm(p => ({ ...p, working_hours: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-loko-text-muted mb-1">Описание</label>
+            <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} className="input w-full min-h-[60px] resize-y" />
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleEditOrg} disabled={savingOrg || !editForm.name || !editForm.address} className="btn-brand disabled:opacity-50">
+              {savingOrg ? 'Сохранение…' : 'Сохранить'}
+            </button>
+            <button onClick={() => setShowEditOrg(false)} className="btn-ghost">Отмена</button>
+          </div>
+        </div>
+      )}
 
       {/* Форма создания точки */}
       {showPointForm && (

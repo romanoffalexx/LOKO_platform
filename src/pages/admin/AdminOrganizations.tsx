@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { organizationsApi, invitationsApi } from '@/lib/api'
+import { validateLogo } from '@/lib/image'
 import { IconPlus, IconSearch, IconFilter, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck } from '@/components/ui/icons'
 
 export function AdminOrganizations() {
@@ -11,7 +12,7 @@ export function AdminOrganizations() {
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState({
     name: '', address: '', phone: '', email: '', category: '',
-    description: '', working_hours: '09:00-21:00', logo_color: '#A855F7',
+    description: '', working_hours: '09:00-21:00', logo: '', logo_color: '#A855F7',
   })
   const [inviteOrgId, setInviteOrgId] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
@@ -34,7 +35,7 @@ export function AdminOrganizations() {
     try {
       await organizationsApi.create(form)
       setShowCreate(false)
-      setForm({ name: '', address: '', phone: '', email: '', category: '', description: '', working_hours: '09:00-21:00', logo_color: '#A855F7' })
+      setForm({ name: '', address: '', phone: '', email: '', category: '', description: '', working_hours: '09:00-21:00', logo: '', logo_color: '#A855F7' })
       reload()
     } catch (err) {
       console.error('[Org create]', err)
@@ -86,6 +87,29 @@ export function AdminOrganizations() {
             <div>
               <label className="block text-xs font-medium text-loko-text-muted mb-1">Название *</label>
               <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} className="input w-full" placeholder="Кофейня «Утро»" />
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-loko-text-muted mb-1">Лого (200×200, ≤100 КБ)</label>
+                <input type="file" accept="image/*" onChange={async e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const dataUrl = await validateLogo(file)
+                    setForm(p => ({ ...p, logo: dataUrl }))
+                  } catch (err: any) { alert(err.message) }
+                }} className="input w-full text-sm" />
+              </div>
+              <div className="w-20">
+                <label className="block text-xs font-medium text-loko-text-muted mb-1">Цвет</label>
+                <input type="color" value={form.logo_color} onChange={e => setForm(p => ({ ...p, logo_color: e.target.value }))} className="h-[38px] w-full cursor-pointer rounded-lg border border-loko-bg-border" />
+              </div>
+              <div
+                className="flex h-[38px] w-[38px] items-center justify-center overflow-hidden rounded-xl text-base font-bold text-white"
+                style={{ background: form.logo_color }}
+              >
+                {form.logo?.startsWith('data:') ? <img src={form.logo} alt="logo" className="h-full w-full object-cover" /> : (form.logo || form.name?.[0] || '?')}
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-loko-text-muted mb-1">Категория</label>
@@ -201,10 +225,10 @@ export function AdminOrganizations() {
             <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-gradient-brand opacity-10 blur-2xl transition-opacity group-hover:opacity-20" />
             <div className="relative flex items-start gap-4">
               <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white"
+                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-lg font-bold text-white"
                 style={{ background: `linear-gradient(135deg, ${o.logo_color ?? '#A855F7'} 0%, #A855F7 100%)` }}
               >
-                {o.logo || o.name[0]}
+                {o.logo?.startsWith('data:') ? <img src={o.logo} alt="" className="h-full w-full object-cover" /> : (o.logo || o.name[0])}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

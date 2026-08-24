@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { pointsApi, organizationsApi } from '@/lib/api'
-import { IconPlus, IconSearch, IconPin, IconTablet, IconTrash } from '@/components/ui/icons'
+import { IconPlus, IconSearch, IconPin, IconTablet, IconTrash, IconEdit, IconClose } from '@/components/ui/icons'
 
 export function AdminPoints() {
   const [points, setPoints] = useState<any[]>([])
@@ -8,6 +8,9 @@ export function AdminPoints() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '', is_active: true })
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false,
   })
@@ -21,6 +24,36 @@ export function AdminPoints() {
   }
 
   useEffect(load, [])
+
+  const openEdit = (p: any) => {
+    setEditingId(p.id)
+    setEditForm({ name: p.name, address: p.address, phone: p.phone || '', contact_name: p.contact_name || '', email: p.email || '', working_hours: p.working_hours || '09:00-21:00', is_active: p.is_active })
+    setShowForm(false)
+  }
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingId) return
+    setSaving(true)
+    try {
+      await pointsApi.update(editingId, editForm)
+      setEditingId(null)
+      load()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleToggleActive = async (p: any) => {
+    try {
+      await pointsApi.update(p.id, { is_active: !p.is_active })
+      load()
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,30 +147,55 @@ export function AdminPoints() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {points.map(p => (
           <div key={p.id} className="card p-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-bg-base/60 text-loko-pink">
-                  <IconPin size={18} />
+            {editingId === p.id ? (
+              <form onSubmit={handleEdit} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-loko-text-primary">Редактирование</h3>
+                  <button type="button" onClick={() => setEditingId(null)} className="text-loko-text-muted hover:text-loko-text-primary"><IconClose size={16} /></button>
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-loko-text-primary">{p.name}</div>
-                  <div className="text-xs text-loko-text-muted">{p.org_name} · {p.address}</div>
+                <div className="grid grid-cols-1 gap-2">
+                  <input className="input w-full" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required placeholder="Название" />
+                  <input className="input w-full" value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} required placeholder="Адрес" />
+                  <input className="input w-full" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="Телефон" />
+                  <input className="input w-full" value={editForm.contact_name} onChange={e => setEditForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Контакт" />
+                  <input className="input w-full" value={editForm.working_hours} onChange={e => setEditForm(f => ({ ...f, working_hours: e.target.value }))} placeholder="Часы" />
                 </div>
-              </div>
-              <button onClick={() => handleDelete(p.id)} className="text-loko-text-muted hover:text-red-400"><IconTrash size={14} /></button>
-            </div>
-            <div className="mt-3 space-y-1 text-xs text-loko-text-secondary">
-              {p.phone && <div>Тел: {p.phone}</div>}
-              {p.contact_name && <div>Контакт: {p.contact_name}</div>}
-              {p.email && <div>Email: {p.email}</div>}
-              <div>Часы: {p.working_hours}</div>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <span className={`badge ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
-                {p.is_active ? 'Активна' : 'Неактивна'}
-              </span>
-              {p.has_tablet && <span className="badge badge-pink"><IconTablet size={10} className="mr-1" />Планшет</span>}
-            </div>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={saving} className="btn-brand text-xs disabled:opacity-50">{saving ? '…' : 'Сохранить'}</button>
+                  <button type="button" onClick={() => setEditingId(null)} className="btn-ghost text-xs">Отмена</button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-bg-base/60 text-loko-pink">
+                      <IconPin size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-loko-text-primary">{p.name}</div>
+                      <div className="text-xs text-loko-text-muted">{p.org_name} · {p.address}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openEdit(p)} className="text-loko-text-muted hover:text-loko-pink"><IconEdit size={14} /></button>
+                    <button onClick={() => handleDelete(p.id)} className="text-loko-text-muted hover:text-red-400"><IconTrash size={14} /></button>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1 text-xs text-loko-text-secondary">
+                  {p.phone && <div>Тел: {p.phone}</div>}
+                  {p.contact_name && <div>Контакт: {p.contact_name}</div>}
+                  {p.email && <div>Email: {p.email}</div>}
+                  <div>Часы: {p.working_hours}</div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <button onClick={() => handleToggleActive(p)} className={`badge cursor-pointer ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                    {p.is_active ? 'Активна' : 'Неактивна'}
+                  </button>
+                  {p.has_tablet && <span className="badge badge-pink"><IconTablet size={10} className="mr-1" />Планшет</span>}
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>

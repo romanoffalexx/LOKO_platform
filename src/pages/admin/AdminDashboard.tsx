@@ -148,7 +148,7 @@ const TrafficChart: FC<{ data: DashboardData['trafficByDay'] }> = ({ data }) => 
 }
 
 // ==== Виджет «Состояние сети» ====
-const NetworkStatusWidget: FC<{ data: DashboardData['networkStatus'] }> = ({ data }) => {
+const NetworkStatusWidget: FC<{ data: DashboardData['networkStatus']; orgsWithMonitors: number }> = ({ data, orgsWithMonitors }) => {
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between">
@@ -163,7 +163,7 @@ const NetworkStatusWidget: FC<{ data: DashboardData['networkStatus'] }> = ({ dat
       <div className="mt-4 flex flex-col gap-3">
         {[
           { name: 'Планшеты', sub: `${data.tablets.online} устройств`, right: `${data.tablets.online} online`, badge: 'badge-success' },
-          { name: 'Мониторы', sub: `${data.orgsWithMonitors} организаций`, right: `${data.orgsWithMonitors}`, badge: 'badge-violet' },
+          { name: 'Мониторы', sub: `${orgsWithMonitors} организаций`, right: `${orgsWithMonitors}`, badge: 'badge-violet' },
           { name: 'Точки', sub: `${data.tablets.total} всего`, right: `${data.tablets.online}`, badge: 'badge-violet' },
         ].map((r) => (
           <div key={r.name} className="card-elevated flex items-center gap-4 p-3.5">
@@ -357,7 +357,7 @@ export function AdminDashboard() {
       {/* Графики */}
       <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2"><TrafficChart data={data.trafficByDay} /></div>
-        <div><NetworkStatusWidget data={data.networkStatus} /></div>
+        <div><NetworkStatusWidget data={data.networkStatus} orgsWithMonitors={data.orgsWithMonitors} /></div>
       </div>
 
       {/* Нижние блоки */}
