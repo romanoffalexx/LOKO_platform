@@ -96,7 +96,31 @@ const ChartTooltip: FC<{ active?: boolean; payload?: any[]; label?: string }> = 
 }
 
 // ==== Виджет «Трафик и погашение» ====
-const TrafficChart: FC<{ data: DashboardData['trafficByDay'] }> = ({ data }) => {
+type ChartPeriod = '7days' | '30days' | '90days'
+const chartPeriodLabels: Record<ChartPeriod, string> = { '7days': '7 дней', '30days': '30 дней', '90days': '90 дней' }
+
+const TrafficChart: FC<{ data: DashboardData['trafficByDay'] }> = ({ data: initialData }) => {
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('7days')
+  const [chartData, setChartData] = useState(initialData)
+  const [chartLoading, setChartLoading] = useState(false)
+
+  useEffect(() => { setChartData(initialData) }, [initialData])
+
+  useEffect(() => {
+    const fetchChart = async () => {
+      setChartLoading(true)
+      try {
+        const json = await dashboardApi.get(chartPeriod)
+        setChartData(json.trafficByDay)
+      } catch (err) {
+        console.error('[TrafficChart] Ошибка:', err)
+      } finally {
+        setChartLoading(false)
+      }
+    }
+    if (chartPeriod !== '7days') fetchChart()
+  }, [chartPeriod])
+
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between">
@@ -105,17 +129,30 @@ const TrafficChart: FC<{ data: DashboardData['trafficByDay'] }> = ({ data }) => 
           <div className="text-xs text-loko-text-muted">Запуски барабана / погашённые купоны</div>
         </div>
         <div className="flex items-center gap-1 rounded-xl border border-loko-bg-border bg-loko-bg-base/40 p-1 text-xs">
-          {['7 дней', '30 дней', '90 дней'].map((p, i) => (
-            <button key={p} className={`rounded-lg px-3 py-1.5 ${i === 0 ? 'bg-loko-bg-elevated text-loko-text-primary' : 'text-loko-text-secondary hover:text-loko-text-primary'}`}>
-              {p}
+          {(['7days', '30days', '90days'] as ChartPeriod[]).map(p => (
+            <button
+              key={p}
+              onClick={() => setChartPeriod(p)}
+              className={`rounded-lg px-3 py-1.5 transition-colors ${
+                chartPeriod === p
+                  ? 'bg-loko-bg-elevated text-loko-text-primary font-medium'
+                  : 'text-loko-text-secondary hover:text-loko-text-primary'
+              }`}
+            >
+              {chartPeriodLabels[p]}
             </button>
           ))}
         </div>
       </div>
 
       <div className="mt-5 h-64">
+        {chartLoading ? (
+          <div className="flex h-full items-center justify-center text-sm text-loko-text-muted">Загрузка…</div>
+        ) : chartData.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-loko-text-muted">Нет данных за выбранный период</div>
+        ) : (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradSpins" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#A855F7" stopOpacity={0.65} />
@@ -133,6 +170,7 @@ const TrafficChart: FC<{ data: DashboardData['trafficByDay'] }> = ({ data }) => 
             <Area type="monotone" dataKey="redeemed" name="Погашения" stroke="#FF2D6A" strokeWidth={2} fill="url(#gradRedeem)" />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       <div className="mt-3 flex items-center gap-4 text-xs text-loko-text-secondary">
@@ -278,7 +316,15 @@ const LiveFeed: FC<{ data: DashboardData['recentEvents'] }> = ({ data }) => {
 }
 
 // ==== Заголовок страницы ====
-const PageHeader: FC<{ onRefresh: () => void; loading: boolean }> = ({ onRefresh, loading }) => (
+type Period = 'today' | 'week' | 'month'
+const periodLabels: Record<Period, string> = { today: 'Сегодня', week: 'Неделя', month: 'Месяц' }
+
+const PageHeader: FC<{
+  onRefresh: () => void
+  loading: boolean
+  period: Period
+  onPeriodChange: (p: Period) => void
+}> = ({ onRefresh, loading, period, onPeriodChange }) => (
   <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
     <div>
       <div className="text-xs text-loko-pink">{new Date().toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' })} · LIVE</div>
@@ -290,14 +336,24 @@ const PageHeader: FC<{ onRefresh: () => void; loading: boolean }> = ({ onRefresh
       </p>
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <button className="btn-outline">
+      <button onClick={() => window.open('/tablet', '_blank')} className="btn-outline">
         <IconSpark size={16} />
         Открыть клиентский сценарий розыгрыша
       </button>
       <div className="flex items-center gap-1 rounded-xl border border-loko-bg-border bg-loko-bg-base/40 p-1 text-sm">
-        <button className="rounded-lg px-3 py-1.5 text-loko-text-primary bg-loko-bg-elevated">Сегодня</button>
-        <button className="rounded-lg px-3 py-1.5 text-loko-text-secondary hover:text-loko-text-primary">Неделя</button>
-        <button className="rounded-lg px-3 py-1.5 text-loko-text-secondary hover:text-loko-text-primary">Месяц</button>
+        {(['today', 'week', 'month'] as Period[]).map(p => (
+          <button
+            key={p}
+            onClick={() => onPeriodChange(p)}
+            className={`rounded-lg px-3 py-1.5 transition-colors ${
+              period === p
+                ? 'text-loko-text-primary bg-loko-bg-elevated font-medium'
+                : 'text-loko-text-secondary hover:text-loko-text-primary'
+            }`}
+          >
+            {periodLabels[p]}
+          </button>
+        ))}
         <IconChevronDown size={16} className="ml-1 mr-2 text-loko-text-muted" />
       </div>
 
@@ -313,12 +369,13 @@ export function AdminDashboard() {
   const [data, setData] = useState<DashboardData>(emptyDashboard)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [period, setPeriod] = useState<Period>('week')
 
-  const fetchData = async () => {
+  const fetchData = async (p: Period = period) => {
     try {
       setLoading(true)
       setError(null)
-      const json = await dashboardApi.get()
+      const json = await dashboardApi.get(p)
       setData(json)
     } catch (err: any) {
       console.error('[Dashboard] Ошибка загрузки:', err)
@@ -329,12 +386,16 @@ export function AdminDashboard() {
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    fetchData(period)
+  }, [period])
+
+  const handlePeriodChange = (p: Period) => {
+    setPeriod(p)
+  }
 
   return (
     <div>
-      <PageHeader onRefresh={fetchData} loading={loading} />
+      <PageHeader onRefresh={() => fetchData()} loading={loading} period={period} onPeriodChange={handlePeriodChange} />
 
       {error && (
         <div className="mb-4 card border-loko-danger/30 bg-loko-danger/10 p-4 text-sm text-loko-danger">

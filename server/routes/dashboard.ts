@@ -3,9 +3,14 @@ import { pool } from '../db/pool.js'
 
 export const dashboardRouter = Router()
 
-/** GET /api/dashboard — сводная статистика для дашборда */
-dashboardRouter.get('/', async (_req: Request, res: Response) => {
+/** GET /api/dashboard — сводная статистика для дашборда
+ *  Query: ?period=today|week|month (по умолчанию week)
+ */
+dashboardRouter.get('/', async (req: Request, res: Response) => {
   try {
+    const period = (req.query.period as string) || 'week'
+    const interval = period === 'today' ? '1 day' : period === 'month' ? '30 days' : period === '90days' ? '90 days' : '7 days'
+
     const [
       orgsWithTablets,
       orgsWithMonitors,
@@ -21,28 +26,32 @@ dashboardRouter.get('/', async (_req: Request, res: Response) => {
       pool.query(`SELECT COUNT(*) AS count FROM organizations WHERE has_tablet = true`),
       // Организации с мониторами (есть записи в screens)
       pool.query(`SELECT COUNT(DISTINCT organization_id) AS count FROM screens WHERE organization_id IS NOT NULL`),
-      // Уникальные участники
-      pool.query(`SELECT COUNT(*) AS count FROM participants`),
-      // Конверсия (погашённые / выданные)
+      // Уникальные участники (за период)
+      pool.query(`SELECT COUNT(*) AS count FROM participants WHERE created_at >= now() - INTERVAL '${interval}'`),
+      // Конверсия (погашённые / выданные) — за период
       pool.query(`
         SELECT
           COALESCE(SUM(total_issued), 0)   AS issued,
           COALESCE(SUM(total_redeemed), 0) AS redeemed
         FROM offers
       `),
-      // Трафик по дням
+      // Трафик по дням (за период)
       pool.query(`
         SELECT
-          TO_CHAR(c.issued_at, 'DD') AS day,
-          TO_CHAR(c.issued_at, 'DD Mon') AS label,
-          COUNT(*) AS spins,
-          COUNT(*) FILTER (WHERE c.status = 'redeemed') AS redeemed
-        FROM coupons c
-        WHERE c.issued_at >= now() - INTERVAL '7 days'
-        GROUP BY day, label
-        ORDER BY day
+          TO_CHAR(d, 'DD') AS day,
+          TO_CHAR(d, 'DD Mon') AS label,
+          COUNT(c.id) AS spins,
+          COUNT(c.id) FILTER (WHERE c.status = 'redeemed') AS redeemed
+        FROM generate_series(
+          now() - INTERVAL '${interval}',
+          now(),
+          INTERVAL '1 day'
+        ) d
+        LEFT JOIN coupons c ON c.issued_at::date = d::date
+        GROUP BY d
+        ORDER BY d
       `),
-      // Топ точек
+      // Топ точек (за период)
       pool.query(`
         SELECT
           org.name,
@@ -52,6 +61,7 @@ dashboardRouter.get('/', async (_req: Request, res: Response) => {
         FROM coupons c
         JOIN organizations org ON org.id = c.organization_id
         LEFT JOIN tablets t ON t.id = c.source_tablet_id
+        WHERE c.issued_at >= now() - INTERVAL '${interval}'
         GROUP BY org.name, c.source_point, t.name
         ORDER BY spins DESC
         LIMIT 5
@@ -69,7 +79,7 @@ dashboardRouter.get('/', async (_req: Request, res: Response) => {
           COUNT(*) AS tablets_total
         FROM tablets
       `),
-      // Последние события
+      // Последние события (за период)
       pool.query(`
         SELECT
           TO_CHAR(c.issued_at, 'HH24:MI') AS time,
@@ -82,6 +92,7 @@ dashboardRouter.get('/', async (_req: Request, res: Response) => {
           c.status
         FROM coupons c
         JOIN offers o ON o.id = c.offer_id
+        WHERE c.issued_at >= now() - INTERVAL '${interval}'
         ORDER BY c.issued_at DESC
         LIMIT 6
       `),

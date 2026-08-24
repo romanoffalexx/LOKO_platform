@@ -216,8 +216,8 @@ export const screensApi = {
 
 // ─── Дашборд ─────────────────────────────────────────────────
 export const dashboardApi = {
-  get: () =>
-    request<any>('/dashboard'),
+  get: (period?: 'today' | 'week' | 'month' | '90days') =>
+    request<any>(`/dashboard${period ? `?period=${period}` : ''}`),
 }
 
 // ─── Health ──────────────────────────────────────────────────
