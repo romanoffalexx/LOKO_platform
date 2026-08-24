@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { organizationsApi, offersApi, pointsApi, tabletsApi, screensApi, couponsApi, leadsApi } from '@/lib/api'
 import { validateLogo } from '@/lib/image'
+import { copyToClipboard } from '@/lib/clipboard'
+import { YandexPointsMap } from '@/components/YandexPointsMap'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
   IconCheck, IconPlus, IconClose, IconEdit,
@@ -16,12 +18,14 @@ export function AdminOrganizationDetail() {
   const [screens, setScreens] = useState<any[]>([])
   const [coupons, setCoupons] = useState<any[]>([])
   const [leads, setLeads] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState<'offers' | 'tablets' | 'monitors' | 'coupons' | 'participants'>('offers')
+  const [activeTab, setActiveTab] = useState<'offers' | 'tablets' | 'monitors' | 'coupons' | 'participants' | 'points'>('offers')
+  const [points, setPoints] = useState<any[]>([])
   const [showTabletForm, setShowTabletForm] = useState(false)
   const [showMonitorForm, setShowMonitorForm] = useState(false)
   const [savingTablet, setSavingTablet] = useState(false)
   const [savingMonitor, setSavingMonitor] = useState(false)
   const [editingMonitorId, setEditingMonitorId] = useState<string | null>(null)
+  const [editingTabletId, setEditingTabletId] = useState<string | null>(null)
   const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', zone: '' })
   const [createdTabletInfo, setCreatedTabletInfo] = useState<{ name: string; login: string; password: string; emailSent: boolean; partnerEmail: string | null } | null>(null)
   const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
@@ -54,7 +58,8 @@ export function AdminOrganizationDetail() {
       screensApi.list({ organization_id: id }),
       couponsApi.list({ organization_id: id, limit: 50 }),
       leadsApi.list({ organization_id: id }),
-    ]).then(([orgData, offersData, tabletsData, screensData, couponsData, leadsData]) => {
+      pointsApi.list({ organization_id: id }),
+    ]).then(([orgData, offersData, tabletsData, screensData, couponsData, leadsData, pointsData]) => {
       setOrg(orgData)
       setOrgOffers(offersData.filter((o: any) => o.organization_id === id))
       setAllOffers(offersData)
@@ -62,6 +67,7 @@ export function AdminOrganizationDetail() {
       setScreens(screensData)
       setCoupons(couponsData)
       setLeads(leadsData)
+      setPoints(pointsData)
     }).catch(err => console.error('[OrgDetail]', err))
       .finally(() => setLoading(false))
   }, [id])
@@ -180,6 +186,26 @@ export function AdminOrganizationDetail() {
       await tabletsApi.delete(tabletId)
       setTablets(prev => prev.filter(t => t.id !== tabletId))
     } catch (err) { console.error('[Tablet delete]', err) }
+  }
+
+  const openEditTablet = (t: any) => {
+    setEditingTabletId(t.id)
+    setTabletForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', zone: t.zone || '' })
+  }
+
+  const handleSaveEditTablet = async () => {
+    if (!editingTabletId || !tabletForm.name) return
+    setSavingTablet(true)
+    try {
+      await tabletsApi.update(editingTabletId, tabletForm)
+      setEditingTabletId(null)
+      const data = await tabletsApi.list({ organization_id: id })
+      setTablets(data)
+    } catch (err) {
+      console.error('[Tablet update]', err)
+    } finally {
+      setSavingTablet(false)
+    }
   }
 
   const handleDeleteMonitor = async (monitorId: string) => {
@@ -496,7 +522,7 @@ export function AdminOrganizationDetail() {
               <input type="number" value={offerForm.coupon_count} onChange={e => setOfferForm(p => ({ ...p, coupon_count: e.target.value }))} className="input w-full" />
             </div>
             <div>
-              <label className="block text-xs text-loko-text-muted mb-1">Вес</label>
+              <label className="block text-xs text-loko-text-muted mb-1" title="Вес определяет вероятность выпадения акции в барабане. Чем больше — тем чаще.">Приоритет</label>
               <input type="number" value={offerForm.weight} onChange={e => setOfferForm(p => ({ ...p, weight: e.target.value }))} className="input w-full" />
             </div>
           </div>
@@ -518,6 +544,7 @@ export function AdminOrganizationDetail() {
         <div className="flex flex-wrap gap-1 rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-1">
           {[
             { key: 'offers', label: 'Акции', count: orgOffers.length },
+            { key: 'points', label: 'Точки', count: points.length },
             { key: 'tablets', label: 'Планшеты', count: tablets.length },
             { key: 'monitors', label: 'Мониторы', count: screens.length },
             { key: 'coupons', label: 'Купоны', count: coupons.length },
@@ -647,6 +674,44 @@ export function AdminOrganizationDetail() {
           </div>
         )}
 
+        {/* ── Точки ── */}
+        {activeTab === 'points' && (
+          <div className="card p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-base font-semibold text-loko-text-primary">Точки</div>
+              <button onClick={() => setShowPointForm(!showPointForm)} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Добавить</button>
+            </div>
+            {/* Яндекс.Карта */}
+            <div className="mb-4 overflow-hidden rounded-2xl border border-loko-bg-border" style={{ height: 400 }}>
+              <YandexPointsMap points={points} />
+            </div>
+            {/* Список точек */}
+            <div className="flex flex-col gap-2">
+              {points.length === 0 && (
+                <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+                  У организации пока нет точек
+                </div>
+              )}
+              {points.map(p => (
+                <div key={p.id} className="card-elevated flex items-center gap-3 p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-violet/10 text-loko-violet">
+                    <IconPin size={20} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-loko-text-primary">{p.name}</div>
+                    <div className="text-xs text-loko-text-muted">
+                      {p.address} · {p.phone || '—'} · {p.working_hours || '—'}
+                    </div>
+                  </div>
+                  <span className={`badge ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                    {p.is_active ? 'активна' : 'скрыта'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Планшеты ── */}
         {activeTab === 'tablets' && (
           <div className="card p-5">
@@ -687,17 +752,48 @@ export function AdminOrganizationDetail() {
                 </div>
               )}
               {tablets.map(t => (
-                <div key={t.id} className="card-elevated flex items-center gap-3 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-pink/10 text-loko-pink">
-                    <IconTablet size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-loko-text-primary">{t.name}</div>
-                    <div className="text-xs text-loko-text-muted">
-                      {t.serial && `SN: ${t.serial} · `}{t.point || '—'} · {t.zone || '—'}
+                <div key={t.id}>
+                  {editingTabletId === t.id ? (
+                    <div className="card-elevated space-y-3 p-4">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+                          <input value={tabletForm.name} onChange={e => setTabletForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Серийный номер</label>
+                          <input value={tabletForm.serial} onChange={e => setTabletForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
+                          <input value={tabletForm.point} onChange={e => setTabletForm(p => ({ ...p, point: e.target.value }))} className="input w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+                          <input value={tabletForm.zone} onChange={e => setTabletForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveEditTablet} disabled={savingTablet || !tabletForm.name} className="btn-brand disabled:opacity-50">{savingTablet ? 'Сохранение…' : 'Сохранить'}</button>
+                        <button onClick={() => setEditingTabletId(null)} className="btn-ghost">Отмена</button>
+                      </div>
                     </div>
-                  </div>
-                  <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                  ) : (
+                    <div className="card-elevated flex items-center gap-3 p-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-pink/10 text-loko-pink">
+                        <IconTablet size={20} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-loko-text-primary">{t.name}</div>
+                        <div className="text-xs text-loko-text-muted">
+                          {t.serial && `SN: ${t.serial} · `}{t.point || '—'} · {t.zone || '—'}
+                          {t.login && ` · ${t.login}`}
+                        </div>
+                      </div>
+                      <button onClick={() => openEditTablet(t)} className="text-loko-text-muted hover:text-loko-violet"><IconEdit size={16} /></button>
+                      <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -902,7 +998,7 @@ export function AdminOrganizationDetail() {
               </div>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`Логин: ${createdTabletInfo.login}\nПароль: ${createdTabletInfo.password}`)
+                  copyToClipboard(`Логин: ${createdTabletInfo.login}\nПароль: ${createdTabletInfo.password}`)
                 }}
                 className="btn-ghost w-full text-xs"
               >

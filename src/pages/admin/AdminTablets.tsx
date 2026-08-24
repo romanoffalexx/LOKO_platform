@@ -92,17 +92,16 @@ export function AdminTablets() {
 
       {filtered.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="hidden md:grid grid-cols-12 gap-3 border-b border-loko-bg-border px-4 py-3 text-[11px] uppercase tracking-wider text-loko-text-muted">
+          <div className="hidden md:grid grid-cols-11 gap-3 border-b border-loko-bg-border px-4 py-3 text-[11px] uppercase tracking-wider text-loko-text-muted">
             <div className="col-span-2">Имя</div>
             <div className="col-span-2">SN / Логин</div>
             <div className="col-span-3">Организация</div>
             <div className="col-span-2">Точка</div>
             <div className="col-span-1">Версия</div>
             <div className="col-span-1">Last seen</div>
-            <div className="col-span-1">Статус</div>
           </div>
           {filtered.map((t: any) => (
-          <div key={t.id} className="flex flex-col gap-1.5 md:grid md:grid-cols-12 md:items-center md:gap-3 border-b border-loko-bg-border/40 px-4 py-3 text-sm last:border-b-0">
+          <div key={t.id} className="flex flex-col gap-1.5 md:grid md:grid-cols-11 md:items-center md:gap-3 border-b border-loko-bg-border/40 px-4 py-3 text-sm last:border-b-0">
             <div className="md:col-span-2 inline-flex items-center gap-2 font-semibold text-loko-text-primary">
               <IconTablet size={14} className="text-loko-pink" />{t.name}
             </div>
@@ -112,11 +111,6 @@ export function AdminTablets() {
             <div className="flex items-center gap-3 md:contents">
               <div className="md:col-span-1 text-xs text-loko-text-muted">v{t.app_version}</div>
               <div className="md:col-span-1 text-xs text-loko-text-muted">{new Date(t.last_seen).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</div>
-            </div>
-            <div className="md:col-span-1">
-              <span className={`badge ${t.status === 'online' ? 'badge-success' : t.status === 'offline' ? 'badge-neutral' : 'badge-warn'}`}>
-                {t.status}
-              </span>
             </div>
           </div>
         ))}

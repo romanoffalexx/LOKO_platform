@@ -16,6 +16,9 @@ pointsRouter.get('/', requireAuth, async (req, res) => {
     if (req.session.role === 'partner') {
       query += ' WHERE p.organization_id = $1'
       params.push(req.session.organizationId)
+    } else if (req.query.organization_id) {
+      query += ' WHERE p.organization_id = $1'
+      params.push(req.query.organization_id)
     }
 
     query += ' ORDER BY p.created_at DESC'

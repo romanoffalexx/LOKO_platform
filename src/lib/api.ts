@@ -246,8 +246,12 @@ export const authApi = {
 
 // ─── Points ────────────────────────────────────────────────
 export const pointsApi = {
-  list: () =>
-    request<any[]>('/points'),
+  list: (params?: { organization_id?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.organization_id) qs.set('organization_id', params.organization_id)
+    const s = qs.toString()
+    return request<any[]>(`/points${s ? `?${s}` : ''}`)
+  },
 
   create: (data: Record<string, any>) =>
     request<any>('/points', { method: 'POST', body: JSON.stringify(data) }),

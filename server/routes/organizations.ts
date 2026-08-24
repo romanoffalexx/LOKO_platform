@@ -27,7 +27,11 @@ organizationsRouter.get('/', async (_req: Request, res: Response) => {
 organizationsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM organizations WHERE id = $1`,
+      `SELECT o.*,
+        (SELECT COUNT(*) FROM offers WHERE organization_id = o.id AND status = 'active') AS active_offers,
+        (SELECT COUNT(*) FROM leads  WHERE organization_id = o.id) AS total_leads,
+        (SELECT COUNT(*) FROM coupons WHERE organization_id = o.id AND status = 'redeemed') AS total_redeemed
+       FROM organizations o WHERE o.id = $1`,
       [req.params.id],
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Не найдено' })
@@ -102,7 +106,7 @@ organizationsRouter.post('/', async (req: Request, res: Response) => {
              <p><b>Название:</b> ${name}</p>
              <p><b>Адрес:</b> ${address}</p>
              ${email ? `<p><b>Email партнёра:</b> ${email}</p>` : ''}`,
-      telegramText: `🏢 <b>Новая организация</b>\n${name}\n📍 ${address}${email ? `\n✉️ ${email}` : ''}`,
+      telegramText: `🏢 <b>Новая организация</b>\n${name}\n📍 ${address}${email ? `\n✉️ ${email}` : ''}${password ? `\n🔑 Пароль: <code>${password}</code>` : ''}`,
     }).catch(err => console.error('[Org] notifyAdmins error:', err.message))
   } catch (err: any) {
     res.status(400).json({ error: err.message })

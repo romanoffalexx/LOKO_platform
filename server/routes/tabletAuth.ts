@@ -13,11 +13,13 @@ tabletAuthRouter.post('/login', async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT t.*, p.id as point_id, p.organization_id, p.is_active as point_active,
+      `SELECT t.*,
+              p.id as point_id, p.is_active as point_active,
+              COALESCE(p.organization_id, t.organization_id) as org_id,
               o.status as org_status
        FROM tablets t
-       JOIN points p ON p.id = t.point_id
-       JOIN organizations o ON o.id = p.organization_id
+       LEFT JOIN points p ON p.id = t.point_id
+       LEFT JOIN organizations o ON o.id = COALESCE(p.organization_id, t.organization_id)
        WHERE t.login = $1`,
       [login]
     )
@@ -37,7 +39,7 @@ tabletAuthRouter.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверный логин или пароль' })
     }
 
-    if (!tablet.point_active) {
+    if (tablet.point_id && !tablet.point_active) {
       return res.status(403).json({ error: 'Точка деактивирована. Обратитесь к администратору.' })
     }
 
@@ -51,13 +53,13 @@ tabletAuthRouter.post('/login', async (req, res) => {
     // Сохраняем сессию
     req.session.userId = tablet.id
     req.session.role = 'tablet'
-    req.session.organizationId = tablet.organization_id
+    req.session.organizationId = tablet.org_id
     req.session.pointId = tablet.point_id
 
     res.json({
       tablet_id: tablet.id,
       point_id: tablet.point_id,
-      organization_id: tablet.organization_id,
+      organization_id: tablet.org_id,
       point_name: tablet.point,
     })
   } catch (err: any) {

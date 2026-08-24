@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { organizationsApi, invitationsApi } from '@/lib/api'
 import { validateLogo } from '@/lib/image'
+import { copyToClipboard } from '@/lib/clipboard'
 import { IconPlus, IconSearch, IconFilter, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck, IconRefresh } from '@/components/ui/icons'
 
 export function AdminOrganizations() {
@@ -199,7 +200,7 @@ export function AdminOrganizations() {
               <div className="flex items-center gap-2">
                 <code className="flex-1 truncate text-sm text-loko-pink">{inviteUrl}</code>
                 <button
-                  onClick={() => { navigator.clipboard.writeText(inviteUrl); }}
+                  onClick={() => { copyToClipboard(inviteUrl); }}
                   className="btn-ghost text-xs px-2 py-1"
                 >
                   Копировать
@@ -257,7 +258,7 @@ export function AdminOrganizations() {
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(`Логин: ${createdInfo.email}\nПароль: ${createdInfo.password}`)
+                    copyToClipboard(`Логин: ${createdInfo.email}\nПароль: ${createdInfo.password}`)
                   }}
                   className="btn-ghost w-full text-xs"
                 >
