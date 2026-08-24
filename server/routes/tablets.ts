@@ -57,9 +57,9 @@ tabletsRouter.post('/', async (req: Request, res: Response) => {
     const password_hash = await bcrypt.hash(rawPassword, 12)
 
     const { rows } = await pool.query(
-      `INSERT INTO tablets (name, serial, organization_id, point, point_id, zone, login, password_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [name, serial, organization_id ?? null, point ?? '', point_id || null, zone ?? '', login, password_hash],
+      `INSERT INTO tablets (name, serial, organization_id, point, point_id, zone, login, password_hash, password_plain)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [name, serial, organization_id ?? null, point ?? '', point_id || null, zone ?? '', login, password_hash, rawPassword],
     )
 
     const tablet = rows[0]
@@ -120,22 +120,54 @@ function generatePassword(): string {
   return pwd
 }
 
-/** PATCH /api/tablets/:id — обновить планшет */
+/** PATCH /api/tablets/:id — обновить планшет (включая смену пароля) */
 tabletsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
+    const { new_password, ...rest } = req.body
+
+    // Если передан новый пароль — хэшируем и сохраняем
+    if (new_password) {
+      const hash = await bcrypt.hash(new_password, 12)
+      await pool.query(
+        `UPDATE tablets SET password_hash = $1, password_plain = $2 WHERE id = $3`,
+        [hash, new_password, req.params.id],
+      )
+    }
+
     const allowed = ['name','serial','organization_id','point','point_id','zone','status','last_seen','app_version']
-    const fields = Object.entries(req.body).filter(([k]) => allowed.includes(k))
-    if (fields.length === 0) return res.status(400).json({ error: 'Нет полей' })
-    const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
-    const vals = fields.map(([, v]) => v)
-    const { rows } = await pool.query(
-      `UPDATE tablets SET ${set} WHERE id = $${fields.length + 1} RETURNING *`,
-      [...vals, req.params.id],
-    )
+    const fields = Object.entries(rest).filter(([k]) => allowed.includes(k))
+    if (fields.length === 0 && !new_password) return res.status(400).json({ error: 'Нет полей' })
+
+    if (fields.length > 0) {
+      const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
+      const vals = fields.map(([, v]) => v)
+      await pool.query(
+        `UPDATE tablets SET ${set} WHERE id = $${fields.length + 1}`,
+        [...vals, req.params.id],
+      )
+    }
+
+    const { rows } = await pool.query(`SELECT * FROM tablets WHERE id = $1`, [req.params.id])
     if (rows.length === 0) return res.status(404).json({ error: 'Не найден' })
     res.json(rows[0])
   } catch (err: any) {
     res.status(400).json({ error: err.message })
+  }
+})
+
+/** POST /api/tablets/:id/reset-password — сгенерировать новый пароль */
+tabletsRouter.post('/:id/reset-password', async (req: Request, res: Response) => {
+  try {
+    const newPassword = generatePassword()
+    const hash = await bcrypt.hash(newPassword, 12)
+    const { rows } = await pool.query(
+      `UPDATE tablets SET password_hash = $1, password_plain = $2 WHERE id = $3 RETURNING *`,
+      [hash, newPassword, req.params.id],
+    )
+    if (rows.length === 0) return res.status(404).json({ error: 'Не найден' })
+    res.json({ ...rows[0], password: newPassword })
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
   }
 })
 

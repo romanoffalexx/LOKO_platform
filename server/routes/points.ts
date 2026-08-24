@@ -47,12 +47,13 @@ pointsRouter.post('/', requireAdmin, async (req, res) => {
 
     const point = result.rows[0]
 
-    // Если есть планшет — создаём запись
+    // Если есть планшет — создаём запись с логином и паролем
+    let tabletCredentials: { login: string; password: string } | null = null
     if (has_tablet) {
-      await createTabletForPoint(point.id, organization_id, name)
+      tabletCredentials = await createTabletForPoint(point.id, organization_id, name)
     }
 
-    res.json(point)
+    res.json({ ...point, tablet: tabletCredentials })
   } catch (err: any) {
     console.error('[Points] Create error:', err.message)
     res.status(500).json({ error: 'Ошибка сервера' })
@@ -151,7 +152,7 @@ pointsRouter.post('/:id/tablet', requireAdmin, async (req, res) => {
 })
 
 // ── Helper: создание планшета при создании точки ──────────
-async function createTabletForPoint(pointId: string, orgId: string, pointName: string) {
+async function createTabletForPoint(pointId: string, orgId: string, pointName: string): Promise<{ login: string; password: string }> {
   const org = await pool.query('SELECT name FROM organizations WHERE id = $1', [orgId])
   const orgSlug = (org.rows[0]?.name || 'partner').toLowerCase().replace(/[^a-zа-я0-9]/gi, '').slice(0, 10)
 
@@ -165,8 +166,10 @@ async function createTabletForPoint(pointId: string, orgId: string, pointName: s
   const hash = await bcrypt.hash(password, 12)
 
   await pool.query(
-    `INSERT INTO tablets (name, serial, organization_id, point_id, login, password_hash, status)
-     VALUES ($1, $2, $3, $4, $5, $6, 'offline')`,
-    [`Tablet-${login}`, `serial-${login}`, orgId, pointId, login, hash]
+    `INSERT INTO tablets (name, serial, organization_id, point_id, login, password_hash, password_plain, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'offline')`,
+    [`Tablet-${login}`, `serial-${login}`, orgId, pointId, login, hash, password]
   )
+
+  return { login, password }
 }

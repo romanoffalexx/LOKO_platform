@@ -9,6 +9,13 @@ import {
   IconCheck, IconPlus, IconClose, IconEdit,
 } from '@/components/ui/icons'
 
+function genPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
+  let pwd = ''
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+  return pwd
+}
+
 export function AdminOrganizationDetail() {
   const { id } = useParams()
   const [org, setOrg] = useState<any>(null)
@@ -26,7 +33,10 @@ export function AdminOrganizationDetail() {
   const [savingMonitor, setSavingMonitor] = useState(false)
   const [editingMonitorId, setEditingMonitorId] = useState<string | null>(null)
   const [editingTabletId, setEditingTabletId] = useState<string | null>(null)
-  const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', point_id: '', zone: '' })
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
+  const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', point_id: '', zone: '', login: '', password: '' })
+  const [showPwdTablet, setShowPwdTablet] = useState(false)
+  const [origTabletPwd, setOrigTabletPwd] = useState('')
   const [createdTabletInfo, setCreatedTabletInfo] = useState<{ name: string; login: string; password: string; emailSent: boolean; partnerEmail: string | null } | null>(null)
   const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
   const [loading, setLoading] = useState(true)
@@ -103,12 +113,31 @@ export function AdminOrganizationDetail() {
     if (!id) return
     setSavingPoint(true)
     try {
-      await pointsApi.create({ ...pointForm, organization_id: id })
+      const result = await pointsApi.create({ ...pointForm, organization_id: id })
       setShowPointForm(false)
       setPointForm({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false })
+
       // Перезагружаем данные организации
       const orgData = await organizationsApi.get(id)
       setOrg(orgData)
+
+      // Если создан планшет — показываем попап с данными
+      if (result.tablet) {
+        setCreatedTabletInfo({
+          name: pointForm.name,
+          login: result.tablet.login,
+          password: result.tablet.password,
+          emailSent: false,
+          partnerEmail: null,
+        })
+        // Перезагружаем список планшетов
+        const tabletsData = await tabletsApi.list({ organization_id: id })
+        setTablets(tabletsData)
+      }
+
+      // Перезагружаем точки
+      const pointsData = await pointsApi.list({ organization_id: id })
+      setPoints(pointsData)
     } catch (err: any) {
       console.error('[Point create]', err)
     } finally {
@@ -145,7 +174,7 @@ export function AdminOrganizationDetail() {
     try {
       const result = await tabletsApi.create({ ...tabletForm, organization_id: id })
       setShowTabletForm(false)
-      setTabletForm({ name: '', serial: '', point: '', point_id: '', zone: '' })
+      setTabletForm({ name: '', serial: '', point: '', point_id: '', zone: '', login: '', password: '' })
       const data = await tabletsApi.list({ organization_id: id })
       setTablets(data)
 
@@ -190,14 +219,19 @@ export function AdminOrganizationDetail() {
 
   const openEditTablet = (t: any) => {
     setEditingTabletId(t.id)
-    setTabletForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', point_id: t.point_id || '', zone: t.zone || '' })
+    const pwd = t.password_plain || ''
+    setTabletForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', point_id: t.point_id || '', zone: t.zone || '', login: t.login || '', password: pwd })
+    setOrigTabletPwd(pwd)
+    setShowPwdTablet(false)
   }
 
   const handleSaveEditTablet = async () => {
     if (!editingTabletId || !tabletForm.name) return
     setSavingTablet(true)
     try {
-      await tabletsApi.update(editingTabletId, tabletForm)
+      const payload: Record<string, any> = { name: tabletForm.name, serial: tabletForm.serial, point: tabletForm.point, point_id: tabletForm.point_id, zone: tabletForm.zone }
+      if (tabletForm.password && tabletForm.password !== origTabletPwd) payload.new_password = tabletForm.password
+      await tabletsApi.update(editingTabletId, payload)
       setEditingTabletId(null)
       const data = await tabletsApi.list({ organization_id: id })
       setTablets(data)
@@ -688,22 +722,61 @@ export function AdminOrganizationDetail() {
                   У организации пока нет точек
                 </div>
               )}
-              {points.map(p => (
-                <div key={p.id} className="card-elevated flex items-center gap-3 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-violet/10 text-loko-violet">
-                    <IconPin size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-loko-text-primary">{p.name}</div>
-                    <div className="text-xs text-loko-text-muted">
-                      {p.address} · {p.phone || '—'} · {p.working_hours || '—'}
+              {points.map(p => {
+                const pointTablets = tablets.filter(t => t.point_id === p.id)
+                const isExpanded = expandedPointId === p.id
+                return (
+                <div key={p.id} className="card-elevated overflow-hidden">
+                  <div
+                    className={`flex items-center gap-3 p-3 ${p.has_tablet ? 'cursor-pointer hover:bg-loko-bg-surface/40' : ''}`}
+                    onClick={() => p.has_tablet && setExpandedPointId(isExpanded ? null : p.id)}
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-violet/10 text-loko-violet">
+                      <IconPin size={20} />
                     </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-loko-text-primary">{p.name}</div>
+                      <div className="text-xs text-loko-text-muted">
+                        {p.address} · {p.phone || '—'} · {p.working_hours || '—'}
+                      </div>
+                    </div>
+                    {p.has_tablet && (
+                      <span className="badge badge-pink">планшет</span>
+                    )}
+                    <span className={`badge ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                      {p.is_active ? 'активна' : 'скрыта'}
+                    </span>
+                    {p.has_tablet && (
+                      <IconChevronRight size={16} className={`text-loko-text-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    )}
                   </div>
-                  <span className={`badge ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
-                    {p.is_active ? 'активна' : 'скрыта'}
-                  </span>
+
+                  {/* Раскрытая точка: планшеты */}
+                  {isExpanded && (
+                    <div className="border-t border-loko-bg-border bg-loko-bg-base/40 p-3 space-y-2">
+                      {pointTablets.length === 0 && (
+                        <div className="text-xs text-loko-text-muted">Планшет ещё не создан.</div>
+                      )}
+                      {pointTablets.map(t => (
+                        <div key={t.id} className="flex items-center gap-3 rounded-xl border border-loko-bg-border bg-loko-bg-elevated/50 p-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-loko-pink/10 text-loko-pink">
+                            <IconTablet size={18} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-loko-text-primary">{t.name}</div>
+                            <div className="font-mono text-[11px] text-loko-pink">
+                              {t.login} · {t.password_plain || 'пароль не задан'}
+                            </div>
+                          </div>
+                          <button onClick={() => { setActiveTab('tablets'); openEditTablet(t) }} className="text-loko-text-muted hover:text-loko-violet" title="Редактировать"><IconEdit size={16} /></button>
+                          <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -798,6 +871,23 @@ export function AdminOrganizationDetail() {
                           <input value={tabletForm.zone} onChange={e => setTabletForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" />
                         </div>
                       </div>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Логин</label>
+                          <div className="flex items-center gap-2">
+                            <input value={tabletForm.login} readOnly className="input w-full font-mono" />
+                            <button onClick={() => copyToClipboard(tabletForm.login)} className="btn-ghost px-2" title="Скопировать логин">📋</button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Пароль</label>
+                          <div className="flex items-center gap-2">
+                            <input type={showPwdTablet ? 'text' : 'password'} value={tabletForm.password} onChange={e => setTabletForm(p => ({ ...p, password: e.target.value }))} className="input w-full font-mono" />
+                            <button onClick={() => setShowPwdTablet(s => !s)} className="btn-ghost px-2" title={showPwdTablet ? 'Скрыть' : 'Показать'}>{showPwdTablet ? '🙈' : '👁️'}</button>
+                            <button onClick={() => { setTabletForm(p => ({ ...p, password: genPassword() })); setShowPwdTablet(true) }} className="btn-ghost px-2" title="Сгенерировать">🎲</button>
+                          </div>
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <button onClick={handleSaveEditTablet} disabled={savingTablet || !tabletForm.name} className="btn-brand disabled:opacity-50">{savingTablet ? 'Сохранение…' : 'Сохранить'}</button>
                         <button onClick={() => setEditingTabletId(null)} className="btn-ghost">Отмена</button>
@@ -812,8 +902,12 @@ export function AdminOrganizationDetail() {
                         <div className="truncate text-sm font-semibold text-loko-text-primary">{t.name}</div>
                         <div className="text-xs text-loko-text-muted">
                           {t.serial && `SN: ${t.serial} · `}{t.point || '—'} · {t.zone || '—'}
-                          {t.login && ` · ${t.login}`}
                         </div>
+                        {t.login && (
+                          <div className="mt-0.5 font-mono text-[11px] text-loko-pink">
+                            {t.login} · {t.password_plain ? '••••••••' : 'пароль не задан'}
+                          </div>
+                        )}
                       </div>
                       <button onClick={() => openEditTablet(t)} className="text-loko-text-muted hover:text-loko-violet"><IconEdit size={16} /></button>
                       <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>

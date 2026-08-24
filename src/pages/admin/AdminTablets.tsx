@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { tabletsApi } from '@/lib/api'
-import { IconSearch, IconTablet, IconRefresh, IconClose } from '@/components/ui/icons'
+import { copyToClipboard } from '@/lib/clipboard'
+import { IconSearch, IconTablet, IconRefresh, IconClose, IconEdit } from '@/components/ui/icons'
+
+function genPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
+  let pwd = ''
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+  return pwd
+}
 
 export function AdminTablets() {
   const [tablets, setTablets] = useState<any[]>([])
@@ -8,6 +16,11 @@ export function AdminTablets() {
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', serial: '', point: '', zone: '', login: '', password: '' })
+  const [saving, setSaving] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
+  const [origPassword, setOrigPassword] = useState('')
 
   const load = async () => {
     try {
@@ -19,6 +32,35 @@ export function AdminTablets() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Удалить планшет?')) return
+    try {
+      await tabletsApi.delete(id)
+      setTablets(prev => prev.filter(t => t.id !== id))
+    } catch (err) { console.error('[Tablet delete]', err) }
+  }
+
+  const openEdit = (t: any) => {
+    setEditingId(t.id)
+    const pwd = t.password_plain || ''
+    setEditForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', zone: t.zone || '', login: t.login || '', password: pwd })
+    setOrigPassword(pwd)
+    setShowPwd(false)
+  }
+
+  const handleSave = async () => {
+    if (!editingId || !editForm.name) return
+    setSaving(true)
+    try {
+      const payload: Record<string, any> = { name: editForm.name, serial: editForm.serial, point: editForm.point, zone: editForm.zone }
+      if (editForm.password && editForm.password !== origPassword) payload.new_password = editForm.password
+      await tabletsApi.update(editingId, payload)
+      setEditingId(null)
+      await load()
+    } catch (err) { console.error('[Tablet update]', err) }
+    finally { setSaving(false) }
   }
 
   useEffect(() => { load() }, [])
@@ -92,26 +134,77 @@ export function AdminTablets() {
 
       {filtered.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="hidden md:grid grid-cols-11 gap-3 border-b border-loko-bg-border px-4 py-3 text-[11px] uppercase tracking-wider text-loko-text-muted">
+          <div className="hidden md:grid grid-cols-12 gap-3 border-b border-loko-bg-border px-4 py-3 text-[11px] uppercase tracking-wider text-loko-text-muted">
             <div className="col-span-2">Имя</div>
             <div className="col-span-2">SN / Логин</div>
             <div className="col-span-3">Организация</div>
             <div className="col-span-2">Точка</div>
             <div className="col-span-1">Версия</div>
             <div className="col-span-1">Last seen</div>
+            <div className="col-span-1"></div>
           </div>
           {filtered.map((t: any) => (
-          <div key={t.id} className="flex flex-col gap-1.5 md:grid md:grid-cols-11 md:items-center md:gap-3 border-b border-loko-bg-border/40 px-4 py-3 text-sm last:border-b-0">
-            <div className="md:col-span-2 inline-flex items-center gap-2 font-semibold text-loko-text-primary">
-              <IconTablet size={14} className="text-loko-pink" />{t.name}
-            </div>
-            <div className="md:col-span-2 font-mono text-xs text-loko-text-muted">{t.serial}{t.login && <div className="text-loko-pink">{t.login}</div>}</div>
-            <div className="md:col-span-3 truncate text-loko-text-secondary">{t.organization_name}</div>
-            <div className="md:col-span-2 text-xs text-loko-text-muted">{t.point}</div>
-            <div className="flex items-center gap-3 md:contents">
-              <div className="md:col-span-1 text-xs text-loko-text-muted">v{t.app_version}</div>
-              <div className="md:col-span-1 text-xs text-loko-text-muted">{new Date(t.last_seen).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</div>
-            </div>
+          <div key={t.id}>
+            {editingId === t.id ? (
+              <div className="border-b border-loko-bg-border/40 px-4 py-3 space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Название</label>
+                    <input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Серийный номер</label>
+                    <input value={editForm.serial} onChange={e => setEditForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
+                    <input value={editForm.point} onChange={e => setEditForm(p => ({ ...p, point: e.target.value }))} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+                    <input value={editForm.zone} onChange={e => setEditForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Логин</label>
+                    <div className="flex items-center gap-2">
+                      <input value={editForm.login} readOnly className="input w-full font-mono" />
+                      <button onClick={() => copyToClipboard(editForm.login)} className="btn-ghost px-2" title="Скопировать логин">📋</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-loko-text-muted mb-1">Пароль</label>
+                    <div className="flex items-center gap-2">
+                      <input type={showPwd ? 'text' : 'password'} value={editForm.password} onChange={e => setEditForm(p => ({ ...p, password: e.target.value }))} className="input w-full font-mono" />
+                      <button onClick={() => setShowPwd(s => !s)} className="btn-ghost px-2" title={showPwd ? 'Скрыть' : 'Показать'}>{showPwd ? '🙈' : '👁️'}</button>
+                      <button onClick={() => { setEditForm(p => ({ ...p, password: genPassword() })); setShowPwd(true) }} className="btn-ghost px-2" title="Сгенерировать">🎲</button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleSave} disabled={saving || !editForm.name} className="btn-brand disabled:opacity-50">{saving ? 'Сохранение…' : 'Сохранить'}</button>
+                  <button onClick={() => setEditingId(null)} className="btn-ghost">Отмена</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5 md:grid md:grid-cols-12 md:items-center md:gap-3 border-b border-loko-bg-border/40 px-4 py-3 text-sm last:border-b-0">
+                <div className="md:col-span-2 inline-flex items-center gap-2 font-semibold text-loko-text-primary">
+                  <IconTablet size={14} className="text-loko-pink" />{t.name}
+                </div>
+                <div className="md:col-span-2 font-mono text-xs text-loko-text-muted">{t.serial}{t.login && <div className="text-loko-pink">{t.login}</div>}{t.password_plain && <div className="text-loko-text-muted">••••••</div>}</div>
+                <div className="md:col-span-3 truncate text-loko-text-secondary">{t.organization_name}</div>
+                <div className="md:col-span-2 text-xs text-loko-text-muted">{t.point}</div>
+                <div className="flex items-center gap-3 md:contents">
+                  <div className="md:col-span-1 text-xs text-loko-text-muted">v{t.app_version}</div>
+                  <div className="md:col-span-1 text-xs text-loko-text-muted">{t.last_seen ? new Date(t.last_seen).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
+                  <div className="md:col-span-1 flex items-center gap-2">
+                    <button onClick={() => openEdit(t)} className="text-loko-text-muted hover:text-loko-violet"><IconEdit size={16} /></button>
+                    <button onClick={() => handleDelete(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

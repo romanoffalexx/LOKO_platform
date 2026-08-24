@@ -1,8 +1,7 @@
 import { type FC, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
 import { offersApi, organizationsApi } from '@/lib/api'
-import { IconCamera, IconCheck, IconClock, IconPin, IconRefresh } from '@/components/ui/icons'
+import { IconCheck, IconClock, IconPin } from '@/components/ui/icons'
 
 function genCode() {
   return `LOKO-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
@@ -165,15 +164,6 @@ export const TabletCoupon: FC = () => {
           <div className="pointer-events-none absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-loko-bg-base" />
         </div>
       </motion.div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <button className="btn-outline">
-          <IconCamera size={16} />Сфотографировать
-        </button>
-        <Link to="/tablet" className="btn-ghost">
-          <IconRefresh size={16} />Новая попытка
-        </Link>
-      </div>
 
       <div className="mt-3 text-center text-[10px] text-loko-text-muted">
         Покажите купон сотруднику. Сотрудник погасит его вручную по коду.

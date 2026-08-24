@@ -73,7 +73,8 @@ const SlotDrum: FC<{
     doneRef.current = false
 
     const R = items.length
-    const landIdx = winnerIndex + (REPEATS - 2) * R
+    // Целевая позиция: winner в центре видимого окна (VISIBLE=3, центр = индекс 1)
+    const landIdx = winnerIndex + (REPEATS - 1) * R
     const viewCenter = (VISIBLE * IH) / 2
     const target = landIdx * IH + IH / 2 - viewCenter
 
@@ -94,7 +95,7 @@ const SlotDrum: FC<{
 
     // Основной прокрут с овершутом
     tl.to(proxy, {
-      v: to + 12,
+      v: to + 15,
       duration: 3.8,
       ease: 'power4.out',
       onUpdate: () => {
@@ -104,11 +105,23 @@ const SlotDrum: FC<{
       },
     })
 
-    // Небольшой отскок назад
+    // Сальто-отскок назад
+    tl.to(proxy, {
+      v: to - 4,
+      duration: 0.25,
+      ease: 'power2.out',
+      onUpdate: () => {
+        if (stripRef.current) {
+          stripRef.current.style.transform = `translateY(${-proxy.v}px)`
+        }
+      },
+    })
+
+    // Финальная посадка
     tl.to(proxy, {
       v: to,
-      duration: 0.35,
-      ease: 'back.out(2)',
+      duration: 0.3,
+      ease: 'back.out(3)',
       onUpdate: () => {
         if (stripRef.current) {
           stripRef.current.style.transform = `translateY(${-proxy.v}px)`
@@ -151,7 +164,7 @@ const SlotDrum: FC<{
           <ReelCard
             key={i}
             offer={offer}
-            highlight={spinning ? false : i % items.length === winnerIndex && i >= (REPEATS - 2) * items.length}
+            highlight={spinning ? false : i % items.length === winnerIndex && i >= (REPEATS - 1) * items.length}
           />
         ))}
       </div>
@@ -270,42 +283,122 @@ export const TabletSpin: FC = () => {
         </AnimatePresence>
       </div>
 
+      {/* Вспышка экрана при выигрыше */}
+      <AnimatePresence>
+        {done && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
+            className="pointer-events-none fixed inset-0 z-50"
+            style={{
+              background: 'radial-gradient(circle at center, rgba(255,255,255,0.9) 0%, rgba(255,45,106,0.4) 40%, transparent 70%)',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Конфетти-частицы */}
+      <AnimatePresence>
+        {done && (
+          <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+            {Array.from({ length: 30 }).map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{
+                  x: '50vw',
+                  y: '40vh',
+                  opacity: 1,
+                  scale: 0,
+                  rotate: 0,
+                }}
+                animate={{
+                  x: `${10 + Math.random() * 80}vw`,
+                  y: `${60 + Math.random() * 40}vh`,
+                  opacity: 0,
+                  scale: 1 + Math.random(),
+                  rotate: 360 * (Math.random() > 0.5 ? 1 : -1) * (1 + Math.random()),
+                }}
+                transition={{
+                  duration: 1.5 + Math.random() * 1.5,
+                  ease: 'easeOut',
+                  delay: Math.random() * 0.3,
+                }}
+                className="absolute"
+                style={{
+                  width: 8 + Math.random() * 8,
+                  height: 8 + Math.random() * 8,
+                  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                  background: ['#FF2D6A', '#A855F7', '#FFD700', '#10B981', '#3B82F6', '#F59E0B'][i % 6],
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Результат */}
       <AnimatePresence>
         {done && (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', damping: 18, stiffness: 200 }}
+            initial={{ opacity: 0, y: 30, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', damping: 12, stiffness: 250, delay: 0.2 }}
             className="mt-5"
           >
-            <div className="card-elevated border-loko-success/30 bg-loko-success/10 p-5 text-center">
+            <div className="card-elevated relative overflow-hidden border-loko-success/40 bg-gradient-to-br from-loko-success/15 via-loko-bg-elevated to-loko-pink/10 p-6 text-center">
+              {/* Пульсирующее свечение */}
               <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.15, type: 'spring', stiffness: 300 }}
-                className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-loko-success/20 text-2xl"
+                animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 rounded-2xl bg-loko-success/10 blur-xl"
+              />
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ delay: 0.4, type: 'spring', stiffness: 300, damping: 15 }}
+                className="relative mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-loko-success/20 text-3xl"
               >
                 🎉
               </motion.div>
-              <div className="text-xs font-medium uppercase tracking-wider text-loko-success">
-                Победа!
-              </div>
-              <div className="mt-1 text-lg font-bold text-loko-text-primary">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="relative text-xs font-bold uppercase tracking-widest text-loko-success"
+              >
+                ✨ Победа! ✨
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="relative mt-2 text-xl font-bold text-loko-text-primary"
+              >
                 {offers[winnerRef.current].title}
-              </div>
-              <div className="text-xs text-loko-text-secondary">
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.7 }}
+                className="relative text-sm text-loko-text-secondary"
+              >
                 {offers[winnerRef.current].organization_name}
-              </div>
+              </motion.div>
             </div>
 
-            <button
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, type: 'spring', stiffness: 200 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => nav('/tablet/coupon')}
-              className="btn-brand mt-4 w-full py-4 text-base"
+              className="btn-brand mt-5 w-full py-4 text-base shadow-glow"
             >
               Показать купон
               <IconArrowRight size={16} />
-            </button>
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>

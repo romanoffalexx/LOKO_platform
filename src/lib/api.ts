@@ -140,6 +140,9 @@ export const tabletsApi = {
   update: (id: string, data: Record<string, any>) =>
     request<any>(`/tablets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+  resetPassword: (id: string) =>
+    request<any>(`/tablets/${id}/reset-password`, { method: 'POST' }),
+
   delete: (id: string) =>
     request<{ ok: boolean }>(`/tablets/${id}`, { method: 'DELETE' }),
 }
