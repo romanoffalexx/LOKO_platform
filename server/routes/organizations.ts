@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { pool } from '../db/pool.js'
+import bcrypt from 'bcryptjs'
+import { sendEmail } from '../services/email.js'
 
 export const organizationsRouter = Router()
 
@@ -37,14 +39,59 @@ organizationsRouter.get('/:id', async (req: Request, res: Response) => {
 /** POST /api/organizations — создать */
 organizationsRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, address, zone, logo, logo_color, phone, email, has_tablet, participates_in_offers, category, description, working_hours } = req.body
+    const { name, address, zone, logo, logo_color, phone, email, password, has_tablet, participates_in_offers, category, description, working_hours } = req.body
     if (!name || !address) return res.status(400).json({ error: 'name и address обязательны' })
+
+    // Если указан email — нужен и пароль
+    if (email && !password) return res.status(400).json({ error: 'Укажите пароль для аккаунта партнёра' })
+
+    // Проверяем уникальность email
+    if (email) {
+      const dup = await pool.query('SELECT id FROM users WHERE email = $1', [email])
+      if (dup.rows.length > 0) return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
+    }
+
+    // Создаём организацию
     const { rows } = await pool.query(
       `INSERT INTO organizations (name, address, zone, logo, logo_color, phone, email, has_tablet, participates_in_offers, category, description, working_hours)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [name, address, zone ?? '', logo ?? '', logo_color ?? '#A855F7', phone ?? '', email ?? '', has_tablet ?? false, participates_in_offers ?? false, category ?? '', description ?? '', working_hours ?? ''],
     )
-    res.status(201).json(rows[0])
+    const org = rows[0]
+
+    // Создаём пользователя-партнёра, если указан email
+    let emailSent = false
+    if (email && password) {
+      const hash = await bcrypt.hash(password, 12)
+      await pool.query(
+        `INSERT INTO users (email, password_hash, role, name, organization_id)
+         VALUES ($1, $2, 'partner', $3, $4)`,
+        [email, hash, name, org.id]
+      )
+
+      // Отправляем письмо с учётными данными
+      try {
+        const loginUrl = process.env.APP_URL || 'http://localhost:3000'
+        await sendEmail(
+          email,
+          `Доступ в кабинет партнёра — ${name}`,
+          `<div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+            <h2 style="color:#A855F7">${name}</h2>
+            <p>Ваш аккаунт создан. Данные для входа:</p>
+            <div style="background:#f9f5ff;border-radius:12px;padding:16px;margin:16px 0">
+              <p style="margin:4px 0"><b>Логин:</b> ${email}</p>
+              <p style="margin:4px 0"><b>Пароль:</b> ${password}</p>
+            </div>
+            <a href="${loginUrl}/login" style="display:inline-block;background:linear-gradient(135deg,#FF2D6A,#A855F7);color:#fff;padding:10px 24px;border-radius:10px;text-decoration:none;font-weight:600">Войти</a>
+          </div>`
+        )
+        emailSent = true
+      } catch (mailErr: any) {
+        console.error('[Org] Ошибка отправки email:', mailErr.message)
+      }
+    }
+
+    res.status(201).json({ ...org, emailSent, partnerEmail: email || null, partnerPassword: email && password ? password : null })
   } catch (err: any) {
     res.status(400).json({ error: err.message })
   }

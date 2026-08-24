@@ -26,6 +26,8 @@ import { PartnerLeads } from '@/pages/partner/PartnerLeads'
 import { PartnerOffers } from '@/pages/partner/PartnerOffers'
 import { PartnerTickets } from '@/pages/partner/PartnerTickets'
 import { PartnerRedeem } from '@/pages/partner/PartnerRedeem'
+import { PartnerNotifications } from '@/pages/partner/PartnerNotifications'
+import { PartnerSettings } from '@/pages/partner/PartnerSettings'
 
 // Планшетная часть — ленивая загрузка (Three.js тяжёлый)
 const TabletApp = lazy(() => import('@/layouts/TabletApp'))
@@ -79,6 +81,8 @@ export default function App() {
           <Route path="offers" element={<PartnerOffers />} />
           <Route path="tickets" element={<PartnerTickets />} />
           <Route path="redeem" element={<PartnerRedeem />} />
+          <Route path="notifications" element={<PartnerNotifications />} />
+          <Route path="settings" element={<PartnerSettings />} />
         </Route>
       </Route>
 

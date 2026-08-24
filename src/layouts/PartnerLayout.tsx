@@ -59,8 +59,8 @@ export const PartnerLayout: FC = () => {
         </nav>
 
         <div className="mt-4 flex flex-col gap-1 border-t border-loko-bg-border pt-3">
-          <button className="nav-item"><IconBell size={18} /><span>Уведомления</span></button>
-          <button className="nav-item"><IconSettings size={18} /><span>Настройки</span></button>
+          <NavLink to="/partner/notifications" className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}><IconBell size={18} /><span>Уведомления</span></NavLink>
+          <NavLink to="/partner/settings" className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}><IconSettings size={18} /><span>Настройки</span></NavLink>
           <button onClick={handleLogout} className="nav-item"><IconLogout size={18} /><span>Выйти</span></button>
         </div>
       </aside>

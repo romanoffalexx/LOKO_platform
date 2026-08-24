@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { organizationsApi, invitationsApi } from '@/lib/api'
 import { validateLogo } from '@/lib/image'
-import { IconPlus, IconSearch, IconFilter, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck } from '@/components/ui/icons'
+import { IconPlus, IconSearch, IconFilter, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck, IconRefresh } from '@/components/ui/icons'
 
 export function AdminOrganizations() {
   const [orgs, setOrgs] = useState<any[]>([])
@@ -11,13 +11,14 @@ export function AdminOrganizations() {
   const [showCreate, setShowCreate] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState({
-    name: '', address: '', phone: '', email: '', category: '',
+    name: '', address: '', phone: '', email: '', password: '', category: '',
     description: '', working_hours: '09:00-21:00', logo: '', logo_color: '#A855F7',
   })
   const [inviteOrgId, setInviteOrgId] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteUrl, setInviteUrl] = useState('')
   const [saving, setSaving] = useState(false)
+  const [createdInfo, setCreatedInfo] = useState<{ name: string; email: string; password: string; emailSent: boolean } | null>(null)
 
   const reload = () => {
     setLoading(true)
@@ -29,13 +30,28 @@ export function AdminOrganizations() {
 
   useEffect(() => { reload() }, [])
 
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
+    let pwd = ''
+    for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+    setForm(p => ({ ...p, password: pwd }))
+  }
+
   const handleCreate = async () => {
     if (!form.name || !form.address) return
+    if (form.email && !form.password) return alert('Укажите пароль для аккаунта партнёра')
     setSaving(true)
     try {
-      await organizationsApi.create(form)
+      const result = await organizationsApi.create(form)
+      const orgName = form.name
+      setCreatedInfo({
+        name: orgName,
+        email: form.email,
+        password: form.password,
+        emailSent: result.emailSent ?? false,
+      })
       setShowCreate(false)
-      setForm({ name: '', address: '', phone: '', email: '', category: '', description: '', working_hours: '09:00-21:00', logo: '', logo_color: '#A855F7' })
+      setForm({ name: '', address: '', phone: '', email: '', password: '', category: '', description: '', working_hours: '09:00-21:00', logo: '', logo_color: '#A855F7' })
       reload()
     } catch (err) {
       console.error('[Org create]', err)
@@ -128,6 +144,15 @@ export function AdminOrganizations() {
               <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className="input w-full" placeholder="partner@example.com" />
             </div>
             <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Пароль {form.email && <span className="text-loko-pink">*</span>}</label>
+              <div className="flex items-center gap-2">
+                <input type="text" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} className="input flex-1" placeholder="Пароль для входа партнёра" />
+                <button type="button" onClick={generatePassword} className="shrink-0 rounded-lg border border-loko-bg-border px-2.5 py-2 text-xs font-medium text-loko-violet hover:bg-loko-violet/5" title="Сгенерировать пароль">
+                  <IconRefresh size={16} />
+                </button>
+              </div>
+            </div>
+            <div>
               <label className="block text-xs font-medium text-loko-text-muted mb-1">Часы работы</label>
               <input value={form.working_hours} onChange={e => setForm(p => ({ ...p, working_hours: e.target.value }))} className="input w-full" placeholder="09:00-21:00" />
             </div>
@@ -203,6 +228,57 @@ export function AdminOrganizations() {
         </div>
       )}
       */}
+
+      {/* Уведомление о создании */}
+      {createdInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setCreatedInfo(null)}>
+          <div className="card mx-4 w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-loko-violet/10 text-loko-violet">
+                <IconCheck size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-loko-text-primary">Организация создана</h3>
+                <p className="text-sm text-loko-text-muted">{createdInfo.name}</p>
+              </div>
+              <button onClick={() => setCreatedInfo(null)} className="ml-auto text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+            </div>
+
+            {createdInfo.email && (
+              <div className="rounded-xl border border-loko-bg-border bg-loko-bg-base/50 p-4 space-y-2">
+                <div className="text-xs font-medium uppercase tracking-wider text-loko-text-muted">Данные для входа</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-loko-text-secondary">Логин (email):</span>
+                  <code className="text-sm font-semibold text-loko-text-primary">{createdInfo.email}</code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-loko-text-secondary">Пароль:</span>
+                  <code className="text-sm font-semibold text-loko-text-primary">{createdInfo.password}</code>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`Логин: ${createdInfo.email}\nПароль: ${createdInfo.password}`)
+                  }}
+                  className="btn-ghost w-full text-xs"
+                >
+                  Скопировать данные
+                </button>
+              </div>
+            )}
+
+            {createdInfo.email && (
+              <div className={`flex items-center gap-2 rounded-xl p-3 text-sm ${createdInfo.emailSent ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}`}>
+                {createdInfo.emailSent ? <IconCheck size={16} /> : <IconMail size={16} />}
+                {createdInfo.emailSent
+                  ? 'Письмо с данными отправлено на ' + createdInfo.email
+                  : 'SMTP не настроен — отправьте данные вручную'}
+              </div>
+            )}
+
+            <button onClick={() => setCreatedInfo(null)} className="btn-brand w-full">Готово</button>
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>
