@@ -71,8 +71,8 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Кабинет партнёра — только partner */}
-      <Route element={<RequireRole roles={['partner']} />}>
+      {/* Кабинет партнёра — partner и admin (для просмотра) */}
+      <Route element={<RequireRole roles={['partner', 'admin']} />}>
         <Route path="/partner" element={<PartnerLayout />}>
           <Route index element={<PartnerOverview />} />
           <Route path="leads" element={<PartnerLeads />} />

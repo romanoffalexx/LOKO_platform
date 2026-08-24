@@ -21,6 +21,7 @@ export function AdminOrganizationDetail() {
   const [showMonitorForm, setShowMonitorForm] = useState(false)
   const [savingTablet, setSavingTablet] = useState(false)
   const [savingMonitor, setSavingMonitor] = useState(false)
+  const [editingMonitorId, setEditingMonitorId] = useState<string | null>(null)
   const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', zone: '' })
   const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
   const [loading, setLoading] = useState(true)
@@ -28,6 +29,7 @@ export function AdminOrganizationDetail() {
   const [showOfferForm, setShowOfferForm] = useState(false)
   const [savingPoint, setSavingPoint] = useState(false)
   const [savingOffer, setSavingOffer] = useState(false)
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null)
   const [showEditOrg, setShowEditOrg] = useState(false)
   const [savingOrg, setSavingOrg] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -178,12 +180,98 @@ export function AdminOrganizationDetail() {
     } catch (err) { console.error('[Monitor delete]', err) }
   }
 
+  const openEditMonitor = (s: any) => {
+    setEditingMonitorId(s.id)
+    setMonitorForm({
+      name: s.name || '',
+      point: s.point || '',
+      content: s.content || '',
+      status: s.status || 'active',
+      starts_at: s.starts_at?.slice(0, 10) || '',
+      ends_at: s.ends_at?.slice(0, 10) || '',
+    })
+    setShowMonitorForm(false)
+  }
+
+  const handleSaveEditMonitor = async () => {
+    if (!editingMonitorId || !monitorForm.name) return
+    setSavingMonitor(true)
+    try {
+      await screensApi.update(editingMonitorId, {
+        name: monitorForm.name,
+        point: monitorForm.point,
+        content: monitorForm.content,
+        status: monitorForm.status,
+        starts_at: monitorForm.starts_at || null,
+        ends_at: monitorForm.ends_at || null,
+      })
+      setEditingMonitorId(null)
+      const data = await screensApi.list({ organization_id: id })
+      setScreens(data)
+    } catch (err) {
+      console.error('[Monitor update]', err)
+    } finally {
+      setSavingMonitor(false)
+    }
+  }
+
   const handleCancelCoupon = async (couponId: string) => {
     if (!confirm('Отменить купон?')) return
     try {
       await couponsApi.cancel(couponId)
       setCoupons(prev => prev.map(c => c.id === couponId ? { ...c, status: 'cancelled' } : c))
     } catch (err) { console.error('[Coupon cancel]', err) }
+  }
+
+  const openEditOffer = (o: any) => {
+    setEditingOfferId(o.id)
+    setOfferForm({
+      title: o.title || '',
+      description: o.description || '',
+      starts_at: o.starts_at?.slice(0, 10) || '',
+      ends_at: o.ends_at?.slice(0, 10) || '',
+      zone: o.zone || 'all',
+      emoji: o.emoji || '🎁',
+      bg_gradient: o.bg_gradient || 'linear-gradient(135deg, #A855F7, #EC4899)',
+      coupon_count: String(o.coupon_count ?? 100),
+      weight: String(o.weight ?? 1),
+    })
+    setShowOfferForm(false)
+  }
+
+  const handleSaveEditOffer = async () => {
+    if (!editingOfferId || !offerForm.title) return
+    setSavingOffer(true)
+    try {
+      await offersApi.update(editingOfferId, {
+        title: offerForm.title,
+        description: offerForm.description,
+        starts_at: offerForm.starts_at || null,
+        ends_at: offerForm.ends_at || null,
+        zone: offerForm.zone,
+        emoji: offerForm.emoji,
+        bg_gradient: offerForm.bg_gradient,
+        coupon_count: Number(offerForm.coupon_count),
+        weight: Number(offerForm.weight),
+      })
+      setEditingOfferId(null)
+      const offersData = await offersApi.list()
+      setOrgOffers(offersData.filter((o: any) => o.organization_id === id))
+      setAllOffers(offersData)
+    } catch (err) {
+      console.error('[Offer update]', err)
+    } finally {
+      setSavingOffer(false)
+    }
+  }
+
+  const handleDeleteOffer = async (offerId: string) => {
+    if (!confirm('Удалить акцию?')) return
+    try {
+      await offersApi.delete(offerId)
+      setOrgOffers(prev => prev.filter(o => o.id !== offerId))
+      setAllOffers(prev => prev.filter(o => o.id !== offerId))
+    } catch (err) { console.error('[Offer delete]', err) }
   }
 
   if (loading) return <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>
@@ -460,20 +548,65 @@ export function AdminOrganizationDetail() {
                   </div>
                 )}
                 {orgOffers.map(o => (
-                  <Link to={`/admin/offers/${o.id}`} key={o.id} className="card-elevated group flex items-center gap-3 p-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl" style={{ background: o.bg_gradient }}>
-                      {o.emoji}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-loko-text-primary">{o.title}</div>
-                      <div className="text-xs text-loko-text-muted">
-                        {o.starts_at?.slice(0, 10)} → {o.ends_at?.slice(0, 10)} · {o.total_issued} выдано · {o.total_redeemed} погашено
+                  <div key={o.id}>
+                    {editingOfferId === o.id ? (
+                      /* Inline edit form */
+                      <div className="card-elevated space-y-3 p-4">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <div>
+                            <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+                            <input value={offerForm.title} onChange={e => setOfferForm(p => ({ ...p, title: e.target.value }))} className="input w-full" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-loko-text-muted mb-1">Эмодзи</label>
+                            <input value={offerForm.emoji} onChange={e => setOfferForm(p => ({ ...p, emoji: e.target.value }))} className="input w-full" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-loko-text-muted mb-1">Дата начала</label>
+                            <input type="date" value={offerForm.starts_at} onChange={e => setOfferForm(p => ({ ...p, starts_at: e.target.value }))} className="input w-full" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-loko-text-muted mb-1">Дата окончания</label>
+                            <input type="date" value={offerForm.ends_at} onChange={e => setOfferForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+                            <input value={offerForm.zone} onChange={e => setOfferForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-loko-text-muted mb-1">Кол-во купонов</label>
+                            <input type="number" value={offerForm.coupon_count} onChange={e => setOfferForm(p => ({ ...p, coupon_count: e.target.value }))} className="input w-full" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Описание</label>
+                          <textarea value={offerForm.description} onChange={e => setOfferForm(p => ({ ...p, description: e.target.value }))} className="input w-full min-h-[50px] resize-y" />
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={handleSaveEditOffer} disabled={savingOffer || !offerForm.title} className="btn-brand disabled:opacity-50">{savingOffer ? 'Сохранение…' : 'Сохранить'}</button>
+                          <button onClick={() => setEditingOfferId(null)} className="btn-ghost">Отмена</button>
+                        </div>
                       </div>
-                    </div>
-                    <span className={`badge ${o.status === 'active' ? 'badge-success' : o.status === 'scheduled' ? 'badge-violet' : 'badge-neutral'}`}>
-                      {o.status === 'active' ? 'идёт' : o.status === 'scheduled' ? 'скоро' : 'архив'}
-                    </span>
-                  </Link>
+                    ) : (
+                      /* Card view */
+                      <div className="card-elevated group flex items-center gap-3 p-3">
+                        <Link to={`/admin/offers/${o.id}`} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl" style={{ background: o.bg_gradient }}>
+                          {o.emoji}
+                        </Link>
+                        <Link to={`/admin/offers/${o.id}`} className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-loko-text-primary">{o.title}</div>
+                          <div className="text-xs text-loko-text-muted">
+                            {o.starts_at?.slice(0, 10)} → {o.ends_at?.slice(0, 10)} · {o.total_issued} выдано · {o.total_redeemed} погашено
+                          </div>
+                        </Link>
+                        <span className={`badge ${o.status === 'active' ? 'badge-success' : o.status === 'scheduled' ? 'badge-violet' : 'badge-neutral'}`}>
+                          {o.status === 'active' ? 'идёт' : o.status === 'scheduled' ? 'скоро' : 'архив'}
+                        </span>
+                        <button onClick={() => openEditOffer(o)} className="text-loko-text-muted hover:text-loko-pink" title="Редактировать"><IconEdit size={16} /></button>
+                        <button onClick={() => handleDeleteOffer(o.id)} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -554,7 +687,6 @@ export function AdminOrganizationDetail() {
                       {t.serial && `SN: ${t.serial} · `}{t.point || '—'} · {t.zone || '—'}
                     </div>
                   </div>
-                  <span className={`badge ${t.status === 'online' ? 'badge-success' : 'badge-neutral'}`}>{t.status || 'offline'}</span>
                   <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
                 </div>
               ))}
@@ -606,16 +738,52 @@ export function AdminOrganizationDetail() {
                 </div>
               )}
               {screens.map(s => (
-                <div key={s.id} className="card-elevated flex items-center gap-3 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500 text-lg font-bold">🖥</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-loko-text-primary">{s.name}</div>
-                    <div className="text-xs text-loko-text-muted">
-                      {s.point || '—'}{s.starts_at && ` · ${s.starts_at.slice(0, 10)} → ${s.ends_at?.slice(0, 10)}`}
+                <div key={s.id}>
+                  {editingMonitorId === s.id ? (
+                    /* Inline edit form */
+                    <div className="card-elevated space-y-3 p-4">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+                          <input value={monitorForm.name} onChange={e => setMonitorForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
+                          <input value={monitorForm.point} onChange={e => setMonitorForm(p => ({ ...p, point: e.target.value }))} className="input w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Дата начала</label>
+                          <input type="date" value={monitorForm.starts_at} onChange={e => setMonitorForm(p => ({ ...p, starts_at: e.target.value }))} className="input w-full" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-loko-text-muted mb-1">Дата окончания</label>
+                          <input type="date" value={monitorForm.ends_at} onChange={e => setMonitorForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-loko-text-muted mb-1">Контент</label>
+                        <textarea value={monitorForm.content} onChange={e => setMonitorForm(p => ({ ...p, content: e.target.value }))} className="input w-full min-h-[50px] resize-y" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveEditMonitor} disabled={savingMonitor || !monitorForm.name} className="btn-brand disabled:opacity-50">{savingMonitor ? 'Сохранение…' : 'Сохранить'}</button>
+                        <button onClick={() => setEditingMonitorId(null)} className="btn-ghost">Отмена</button>
+                      </div>
                     </div>
-                  </div>
-                  <span className={`badge ${s.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{s.status || 'active'}</span>
-                  <button onClick={() => handleDeleteMonitor(s.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                  ) : (
+                    /* Card view */
+                    <div className="card-elevated flex items-center gap-3 p-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-500 text-lg font-bold">🖥</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-loko-text-primary">{s.name}</div>
+                        <div className="text-xs text-loko-text-muted">
+                          {s.point || '—'}{s.starts_at && ` · ${s.starts_at.slice(0, 10)} → ${s.ends_at?.slice(0, 10)}`}
+                        </div>
+                      </div>
+                      <span className={`badge ${s.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{s.status || 'active'}</span>
+                      <button onClick={() => openEditMonitor(s)} className="text-loko-text-muted hover:text-loko-pink" title="Редактировать"><IconEdit size={16} /></button>
+                      <button onClick={() => handleDeleteMonitor(s.id)} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
