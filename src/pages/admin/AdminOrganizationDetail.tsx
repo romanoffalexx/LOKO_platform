@@ -26,7 +26,7 @@ export function AdminOrganizationDetail() {
   const [savingMonitor, setSavingMonitor] = useState(false)
   const [editingMonitorId, setEditingMonitorId] = useState<string | null>(null)
   const [editingTabletId, setEditingTabletId] = useState<string | null>(null)
-  const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', zone: '' })
+  const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', point_id: '', zone: '' })
   const [createdTabletInfo, setCreatedTabletInfo] = useState<{ name: string; login: string; password: string; emailSent: boolean; partnerEmail: string | null } | null>(null)
   const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
   const [loading, setLoading] = useState(true)
@@ -145,7 +145,7 @@ export function AdminOrganizationDetail() {
     try {
       const result = await tabletsApi.create({ ...tabletForm, organization_id: id })
       setShowTabletForm(false)
-      setTabletForm({ name: '', serial: '', point: '', zone: '' })
+      setTabletForm({ name: '', serial: '', point: '', point_id: '', zone: '' })
       const data = await tabletsApi.list({ organization_id: id })
       setTablets(data)
 
@@ -190,7 +190,7 @@ export function AdminOrganizationDetail() {
 
   const openEditTablet = (t: any) => {
     setEditingTabletId(t.id)
-    setTabletForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', zone: t.zone || '' })
+    setTabletForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', point_id: t.point_id || '', zone: t.zone || '' })
   }
 
   const handleSaveEditTablet = async () => {
@@ -521,10 +521,6 @@ export function AdminOrganizationDetail() {
               <label className="block text-xs text-loko-text-muted mb-1">Кол-во купонов</label>
               <input type="number" value={offerForm.coupon_count} onChange={e => setOfferForm(p => ({ ...p, coupon_count: e.target.value }))} className="input w-full" />
             </div>
-            <div>
-              <label className="block text-xs text-loko-text-muted mb-1" title="Вес определяет вероятность выпадения акции в барабане. Чем больше — тем чаще.">Приоритет</label>
-              <input type="number" value={offerForm.weight} onChange={e => setOfferForm(p => ({ ...p, weight: e.target.value }))} className="input w-full" />
-            </div>
           </div>
           <div>
             <label className="block text-xs text-loko-text-muted mb-1">Описание</label>
@@ -731,8 +727,24 @@ export function AdminOrganizationDetail() {
                     <input value={tabletForm.serial} onChange={e => setTabletForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" placeholder="SN-001" />
                   </div>
                   <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
-                    <input value={tabletForm.point} onChange={e => setTabletForm(p => ({ ...p, point: e.target.value }))} className="input w-full" placeholder="Точка 1" />
+                    <label className="block text-xs text-loko-text-muted mb-1">Точка *</label>
+                    <select
+                      value={tabletForm.point_id}
+                      onChange={e => {
+                        const pid = e.target.value
+                        const selected = points.find(p => p.id === pid)
+                        setTabletForm(p => ({ ...p, point_id: pid, point: selected?.name || '' }))
+                      }}
+                      className="input w-full"
+                    >
+                      <option value="">— выберите точку —</option>
+                      {points.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.address})</option>
+                      ))}
+                    </select>
+                    {points.length === 0 && (
+                      <div className="mt-1 text-xs text-loko-text-muted">Сначала создайте точку во вкладке «Точки»</div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
@@ -740,7 +752,7 @@ export function AdminOrganizationDetail() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleCreateTablet} disabled={savingTablet || !tabletForm.name} className="btn-brand disabled:opacity-50">{savingTablet ? 'Создание…' : 'Создать'}</button>
+                  <button onClick={handleCreateTablet} disabled={savingTablet || !tabletForm.name || !tabletForm.point_id} className="btn-brand disabled:opacity-50">{savingTablet ? 'Создание…' : 'Создать'}</button>
                   <button onClick={() => setShowTabletForm(false)} className="btn-ghost">Отмена</button>
                 </div>
               </div>
@@ -766,7 +778,20 @@ export function AdminOrganizationDetail() {
                         </div>
                         <div>
                           <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
-                          <input value={tabletForm.point} onChange={e => setTabletForm(p => ({ ...p, point: e.target.value }))} className="input w-full" />
+                          <select
+                            value={tabletForm.point_id}
+                            onChange={e => {
+                              const pid = e.target.value
+                              const selected = points.find(p => p.id === pid)
+                              setTabletForm(p => ({ ...p, point_id: pid, point: selected?.name || '' }))
+                            }}
+                            className="input w-full"
+                          >
+                            <option value="">— не привязана —</option>
+                            {points.map(p => (
+                              <option key={p.id} value={p.id}>{p.name} ({p.address})</option>
+                            ))}
+                          </select>
                         </div>
                         <div>
                           <label className="block text-xs text-loko-text-muted mb-1">Зона</label>

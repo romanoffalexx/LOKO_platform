@@ -49,7 +49,7 @@ tabletsRouter.get('/:id', async (req: Request, res: Response) => {
 /** POST /api/tablets — создать планшет */
 tabletsRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, serial, organization_id, point, zone } = req.body
+    const { name, serial, organization_id, point, point_id, zone } = req.body
 
     // Генерируем логин и пароль для планшета
     const login = `tablet_${Date.now().toString(36)}`
@@ -57,9 +57,9 @@ tabletsRouter.post('/', async (req: Request, res: Response) => {
     const password_hash = await bcrypt.hash(rawPassword, 12)
 
     const { rows } = await pool.query(
-      `INSERT INTO tablets (name, serial, organization_id, point, zone, login, password_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [name, serial, organization_id ?? null, point ?? '', zone ?? '', login, password_hash],
+      `INSERT INTO tablets (name, serial, organization_id, point, point_id, zone, login, password_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, serial, organization_id ?? null, point ?? '', point_id || null, zone ?? '', login, password_hash],
     )
 
     const tablet = rows[0]
@@ -123,7 +123,7 @@ function generatePassword(): string {
 /** PATCH /api/tablets/:id — обновить планшет */
 tabletsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const allowed = ['name','serial','organization_id','point','zone','status','last_seen','app_version']
+    const allowed = ['name','serial','organization_id','point','point_id','zone','status','last_seen','app_version']
     const fields = Object.entries(req.body).filter(([k]) => allowed.includes(k))
     if (fields.length === 0) return res.status(400).json({ error: 'Нет полей' })
     const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
