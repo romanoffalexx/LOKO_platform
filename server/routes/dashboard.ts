@@ -9,7 +9,7 @@ export const dashboardRouter = Router()
 dashboardRouter.get('/', async (req: Request, res: Response) => {
   try {
     const period = (req.query.period as string) || 'week'
-    const interval = period === 'today' ? '1 day' : period === 'month' ? '30 days' : period === '90days' ? '90 days' : '7 days'
+    const interval = period === 'today' ? '1 day' : period === '7days' ? '7 days' : period === '30days' ? '30 days' : period === '90days' ? '90 days' : period === 'month' ? '30 days' : '7 days'
 
     const [
       orgsWithTablets,

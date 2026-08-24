@@ -1,5 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { pool } from '../db/pool.js'
+import bcrypt from 'bcryptjs'
+import { sendEmail } from '../services/email.js'
 
 export const tabletsRouter = Router()
 
@@ -48,16 +50,75 @@ tabletsRouter.get('/:id', async (req: Request, res: Response) => {
 tabletsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { name, serial, organization_id, point, zone } = req.body
+
+    // Генерируем логин и пароль для планшета
+    const login = `tablet_${Date.now().toString(36)}`
+    const rawPassword = generatePassword()
+    const password_hash = await bcrypt.hash(rawPassword, 12)
+
     const { rows } = await pool.query(
-      `INSERT INTO tablets (name, serial, organization_id, point, zone)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [name, serial, organization_id ?? null, point ?? '', zone ?? ''],
+      `INSERT INTO tablets (name, serial, organization_id, point, zone, login, password_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [name, serial, organization_id ?? null, point ?? '', zone ?? '', login, password_hash],
     )
-    res.status(201).json(rows[0])
+
+    const tablet = rows[0]
+    let emailSent = false
+    let partnerEmail: string | null = null
+
+    // Ищем email партнёра организации
+    if (organization_id) {
+      const partnerResult = await pool.query(
+        `SELECT u.email FROM users u WHERE u.organization_id = $1 AND u.role = 'partner' AND u.is_active = true LIMIT 1`,
+        [organization_id]
+      )
+      partnerEmail = partnerResult.rows[0]?.email || null
+
+      // Отправляем письмо партнёру с данными для входа
+      if (partnerEmail) {
+        try {
+          const loginUrl = process.env.APP_URL || 'http://localhost:3000'
+          await sendEmail(
+            partnerEmail,
+            `[ЛОКО] Данные для входа планшета «${name}»`,
+            `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
+              <h2 style="color:#333">Планшет добавлен</h2>
+              <p>В вашей организации создан новый планшет для розыгрышей:</p>
+              <div style="background:#f9f9f9;padding:16px;border-radius:12px;margin:16px 0">
+                <p><strong>Название:</strong> ${name}</p>
+                <p><strong>Логин:</strong> <code>${login}</code></p>
+                <p><strong>Пароль:</strong> <code>${rawPassword}</code></p>
+              </div>
+              <p>Используйте эти данные для входа в планшетное приложение.</p>
+              <a href="${loginUrl}/login" style="display:inline-block;background:linear-gradient(135deg,#FF2D6A,#A855F7);color:#fff;padding:10px 24px;border-radius:10px;text-decoration:none;font-weight:600">Войти</a>
+            </div>`
+          )
+          emailSent = true
+        } catch (err: any) {
+          console.error('[Tablets] Email error:', err.message)
+        }
+      }
+    }
+
+    res.status(201).json({
+      ...tablet,
+      login,
+      password: rawPassword,
+      emailSent,
+      partnerEmail,
+    })
   } catch (err: any) {
     res.status(400).json({ error: err.message })
   }
 })
+
+/** Генерация случайного пароля */
+function generatePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
+  let pwd = ''
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+  return pwd
+}
 
 /** PATCH /api/tablets/:id — обновить планшет */
 tabletsRouter.patch('/:id', async (req: Request, res: Response) => {

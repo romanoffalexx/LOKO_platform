@@ -23,6 +23,7 @@ export function AdminOrganizationDetail() {
   const [savingMonitor, setSavingMonitor] = useState(false)
   const [editingMonitorId, setEditingMonitorId] = useState<string | null>(null)
   const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', zone: '' })
+  const [createdTabletInfo, setCreatedTabletInfo] = useState<{ name: string; login: string; password: string; emailSent: boolean; partnerEmail: string | null } | null>(null)
   const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
   const [loading, setLoading] = useState(true)
   const [showPointForm, setShowPointForm] = useState(false)
@@ -136,11 +137,20 @@ export function AdminOrganizationDetail() {
     if (!id || !tabletForm.name) return
     setSavingTablet(true)
     try {
-      await tabletsApi.create({ ...tabletForm, organization_id: id })
+      const result = await tabletsApi.create({ ...tabletForm, organization_id: id })
       setShowTabletForm(false)
       setTabletForm({ name: '', serial: '', point: '', zone: '' })
       const data = await tabletsApi.list({ organization_id: id })
       setTablets(data)
+
+      // Показываем окно с данными для входа
+      setCreatedTabletInfo({
+        name: result.name || tabletForm.name,
+        login: result.login,
+        password: result.password,
+        emailSent: result.emailSent,
+        partnerEmail: result.partnerEmail,
+      })
     } catch (err) {
       console.error('[Tablet create]', err)
     } finally {
@@ -864,6 +874,55 @@ export function AdminOrganizationDetail() {
         <IconShield size={18} className="text-loko-pink" />
         <span>Доступ к общей клиентской базе партнёру не предоставляется — только лиды по акциям организации.</span>
       </div>
+
+      {/* Модальное окно с данными планшета */}
+      {createdTabletInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setCreatedTabletInfo(null)}>
+          <div className="card mx-4 w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-loko-pink/10 text-loko-pink">
+                <IconTablet size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-loko-text-primary">Планшет создан</h3>
+                <p className="text-sm text-loko-text-muted">{createdTabletInfo.name}</p>
+              </div>
+              <button onClick={() => setCreatedTabletInfo(null)} className="ml-auto text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+            </div>
+
+            <div className="rounded-xl border border-loko-bg-border bg-loko-bg-base/50 p-4 space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-loko-text-muted">Данные для входа</div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-loko-text-secondary">Логин:</span>
+                <code className="text-sm font-semibold text-loko-text-primary">{createdTabletInfo.login}</code>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-loko-text-secondary">Пароль:</span>
+                <code className="text-sm font-semibold text-loko-text-primary">{createdTabletInfo.password}</code>
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`Логин: ${createdTabletInfo.login}\nПароль: ${createdTabletInfo.password}`)
+                }}
+                className="btn-ghost w-full text-xs"
+              >
+                Скопировать данные
+              </button>
+            </div>
+
+            {createdTabletInfo.partnerEmail && (
+              <div className={`flex items-center gap-2 rounded-xl p-3 text-sm ${createdTabletInfo.emailSent ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'}`}>
+                {createdTabletInfo.emailSent ? <IconCheck size={16} /> : <IconMail size={16} />}
+                {createdTabletInfo.emailSent
+                  ? 'Письмо отправлено на ' + createdTabletInfo.partnerEmail
+                  : 'SMTP не настроен — отправьте данные вручную'}
+              </div>
+            )}
+
+            <button onClick={() => setCreatedTabletInfo(null)} className="btn-brand w-full">Готово</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

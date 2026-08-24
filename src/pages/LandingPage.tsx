@@ -48,10 +48,10 @@ export function LandingPage() {
         </svg>
       </div>
 
-      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8">
+      <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 md:px-6 md:py-8">
         {/* Хедер */}
         <header className="flex items-center justify-between">
-          <YaokoLogo className="h-16" withTagline />
+          <YaokoLogo className="h-10 md:h-16" withTagline />
           <div className="hidden items-center gap-2 text-xs text-loko-text-muted md:flex">
             <IconShield size={14} />
             MVP · v0.1 · 20.08.2026
@@ -59,7 +59,7 @@ export function LandingPage() {
         </header>
 
         {/* Hero */}
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <div className="flex flex-1 flex-col items-center justify-center text-center pt-6 md:pt-0">
           {/* <motion.div
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 0.8 }}
@@ -76,7 +76,7 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="badge badge-pink mb-5"
+            className="badge badge-pink mb-4 md:mb-5"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-loko-pink animate-pulse" />
             MVP · Локальные акции и лидогенерация
@@ -85,7 +85,7 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="max-w-3xl text-balance text-4xl font-bold leading-tight tracking-tight text-loko-text-primary md:text-6xl"
+            className="max-w-3xl text-balance text-2xl font-bold leading-tight tracking-tight text-loko-text-primary sm:text-4xl md:text-6xl"
           >
             Платформа <span className="text-gradient">локальных акций</span> для офлайн-бизнеса
           </motion.h1>
@@ -93,14 +93,14 @@ export function LandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-5 max-w-2xl text-pretty text-base text-loko-text-secondary md:text-lg"
+            className="mt-3 md:mt-5 max-w-2xl text-pretty text-sm text-loko-text-secondary md:text-lg"
           >
             Планшет в точке · регистрация по телефону · барабан с акциями · одноразовый купон.
             Три контура: админ, партнёр, клиент.
           </motion.p>
 
           {/* Карточки выбора контура */}
-          <div className="mt-12 grid w-full grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="mt-8 md:mt-12 grid w-full grid-cols-1 gap-3 md:grid-cols-3 md:gap-4">
             {surfaces.map((s, i) => (
               <motion.div
                 key={s.to}
@@ -110,15 +110,15 @@ export function LandingPage() {
               >
                 <Link
                   to={s.to}
-                  className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-loko-bg-border bg-loko-bg-surface/60 p-6 text-left backdrop-blur-xl transition-all hover:border-loko-pink/40 hover:bg-loko-bg-elevated/70"
+                  className="group relative flex h-full flex-col overflow-hidden rounded-2xl md:rounded-3xl border border-loko-bg-border bg-loko-bg-surface/60 p-4 md:p-6 text-left backdrop-blur-xl transition-all hover:border-loko-pink/40 hover:bg-loko-bg-elevated/70"
                 >
                   <div className={`pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-gradient-to-br ${s.color} blur-2xl transition-all group-hover:scale-125`} />
-                  <div className={`relative inline-flex h-12 w-12 items-center justify-center rounded-2xl ${s.accent} text-white shadow-glow-soft`}>
+                  <div className={`relative inline-flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl md:rounded-2xl ${s.accent} text-white shadow-glow-soft`}>
                     {s.icon}
                   </div>
-                  <h3 className="mt-5 text-lg font-semibold text-loko-text-primary">{s.title}</h3>
-                  <p className="mt-1 text-sm text-loko-text-secondary">{s.subtitle}</p>
-                  <div className="mt-6 flex items-center gap-2 text-sm font-medium text-loko-pink">
+                  <h3 className="mt-3 md:mt-5 text-base md:text-lg font-semibold text-loko-text-primary">{s.title}</h3>
+                  <p className="mt-1 text-xs md:text-sm text-loko-text-secondary">{s.subtitle}</p>
+                  <div className="mt-4 md:mt-6 flex items-center gap-2 text-xs md:text-sm font-medium text-loko-pink">
                     Открыть контур
                     <IconArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
                   </div>
@@ -129,7 +129,7 @@ export function LandingPage() {
         </div>
 
         {/* Футер */}
-        <footer className="mt-12 text-center text-xs text-loko-text-muted">
+        <footer className="mt-8 md:mt-12 text-center text-xs text-loko-text-muted">
           © 2026 ЯОКО · Local Promotions Platform ·
         </footer>
       </div>

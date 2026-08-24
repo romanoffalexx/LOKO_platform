@@ -216,7 +216,7 @@ export const screensApi = {
 
 // ─── Дашборд ─────────────────────────────────────────────────
 export const dashboardApi = {
-  get: (period?: 'today' | 'week' | 'month' | '90days') =>
+  get: (period?: 'today' | 'week' | 'month' | '7days' | '30days' | '90days') =>
     request<any>(`/dashboard${period ? `?period=${period}` : ''}`),
 }
 

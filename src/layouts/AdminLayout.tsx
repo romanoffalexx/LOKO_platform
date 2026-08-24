@@ -6,7 +6,7 @@ import { ticketsApi, notificationsApi } from '@/lib/api'
 import {
   IconDashboard, IconBuilding, IconUsers, IconGift, IconTicket, IconPin,
   IconTablet, IconMonitor, IconMap, IconInbox, IconBell, IconSettings,
-  IconSearch, IconPlus, IconLogout, IconLogo, IconShield,
+  IconSearch, IconPlus, IconLogout, IconLogo, IconShield, IconChevronUp,
 } from '@/components/ui/icons'
 
 type NavItem = {
@@ -88,7 +88,14 @@ export const AdminLayout: FC = () => {
   const navigate = useNavigate()
   const [ticketCount, setTicketCount] = useState(0)
   const [notifCount, setNotifCount] = useState(0)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
   const systemNav = getSystemNav(ticketCount, notifCount)
+
+  const moreItems: NavItem[] = [
+    ...infraNav,
+    { to: '/admin/participants', label: 'Участники', icon: <IconUsers size={18} /> },
+    ...systemNav,
+  ]
 
   useEffect(() => {
     const fetchCounts = () => {
@@ -141,6 +148,13 @@ export const AdminLayout: FC = () => {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex items-center gap-2 md:gap-4 border-b border-loko-bg-border bg-loko-bg-base/85 px-4 md:px-6 py-3 md:py-4 backdrop-blur-xl">
+          {/* Мобильный лого + индикатор админки */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <IconLogo size={22} />
+            <span className="text-sm font-semibold text-loko-text-primary">Админ</span>
+          </div>
+
+          {/* Десктопные хлебные крошки */}
           <nav className="hidden sm:flex items-center gap-1 text-sm text-loko-text-secondary">
             <Link to="/admin" className="hover:text-loko-text-primary">Контур</Link>
             <span className="text-loko-text-muted">/</span>
@@ -154,6 +168,10 @@ export const AdminLayout: FC = () => {
           </nav>
 
           <div className="ml-auto flex items-center gap-2 md:gap-3">
+            {/* Мобильная кнопка выхода */}
+            <button onClick={handleLogout} className="sm:hidden text-loko-text-muted hover:text-loko-pink" aria-label="Выйти">
+              <IconLogout size={20} />
+            </button>
             <div className="hidden items-center gap-2 rounded-xl border border-loko-bg-border bg-loko-bg-surface/50 px-3 py-2 text-sm text-loko-text-muted md:flex md:w-72">
               <IconSearch size={16} />
               <input
@@ -183,28 +201,65 @@ export const AdminLayout: FC = () => {
       </div>
 
       {/* МОБИЛЬНАЯ НИЖНЯЯ НАВИГАЦИЯ */}
-      <nav className="fixed bottom-0 inset-x-0 z-30 flex lg:hidden border-t border-loko-bg-border bg-loko-bg-base/95 backdrop-blur-xl safe-area-bottom">
-        {[
-          { to: '/admin', label: 'Дашборд', icon: <IconDashboard size={20} />, end: true },
-          { to: '/admin/organizations', label: 'Орг.', icon: <IconBuilding size={20} /> },
-          { to: '/admin/offers', label: 'Акции', icon: <IconGift size={20} /> },
-          { to: '/admin/coupons', label: 'Купоны', icon: <IconTicket size={20} /> },
-          { to: '/admin/tablets', label: 'Ещё', icon: <IconInbox size={20} /> },
-        ].map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
-                isActive ? 'text-loko-pink' : 'text-loko-text-muted'
-              }`
-            }
+      <nav className="fixed bottom-0 inset-x-0 z-30 lg:hidden safe-area-bottom">
+        {/* Выпадающее меню «Ещё» */}
+        {mobileMoreOpen && (
+          <div className="absolute inset-x-0 bottom-14 border-t border-loko-bg-border bg-loko-bg-base/98 backdrop-blur-xl px-4 py-3 shadow-2xl">
+            <div className="grid grid-cols-2 gap-1">
+              {moreItems.map(item => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileMoreOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                      isActive ? 'bg-loko-pink/10 text-loko-pink font-medium' : 'text-loko-text-secondary hover:bg-loko-bg-elevated/60'
+                    }`
+                  }
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span className="ml-auto rounded-full bg-loko-pink/15 px-1.5 py-0.5 text-[10px] font-semibold text-loko-pink">{item.badge}</span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Основная панель */}
+        <div className="flex border-t border-loko-bg-border bg-loko-bg-base/95 backdrop-blur-xl">
+          {[
+            { to: '/admin', label: 'Дашборд', icon: <IconDashboard size={20} />, end: true },
+            { to: '/admin/organizations', label: 'Орг.', icon: <IconBuilding size={20} /> },
+            { to: '/admin/offers', label: 'Акции', icon: <IconGift size={20} /> },
+            { to: '/admin/coupons', label: 'Купоны', icon: <IconTicket size={20} /> },
+          ].map(item => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+                  isActive ? 'text-loko-pink' : 'text-loko-text-muted'
+                }`
+              }
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+          <button
+            onClick={() => setMobileMoreOpen(v => !v)}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors ${
+              mobileMoreOpen ? 'text-loko-pink' : 'text-loko-text-muted'
+            }`}
           >
-            {item.icon}
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+            <IconChevronUp size={20} className={`transition-transform ${mobileMoreOpen ? 'rotate-180' : ''}`} />
+            <span>Ещё</span>
+          </button>
+        </div>
       </nav>
     </div>
   )

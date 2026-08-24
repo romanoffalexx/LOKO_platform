@@ -54,6 +54,9 @@ export const IconChevronRight: FC<IconProps> = ({ size, ...p }) => (
 export const IconChevronDown: FC<IconProps> = ({ size, ...p }) => (
   <svg {...baseProps(size)} {...p}><path d="m6 9 6 6 6-6"/></svg>
 )
+export const IconChevronUp: FC<IconProps> = ({ size, ...p }) => (
+  <svg {...baseProps(size)} {...p}><path d="m18 15-6-6-6 6"/></svg>
+)
 export const IconPlus: FC<IconProps> = ({ size, ...p }) => (
   <svg {...baseProps(size)} {...p}><path d="M12 5v14M5 12h14"/></svg>
 )
