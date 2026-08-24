@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS geo_zones (
 -- Уведомления
 CREATE TABLE IF NOT EXISTS notifications (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  channel     VARCHAR(10) NOT NULL CHECK (channel IN ('max','email','system')),
+  channel     VARCHAR(10) NOT NULL CHECK (channel IN ('telegram','email','system')),
   event       VARCHAR(500) NOT NULL,
   recipient   VARCHAR(255) NOT NULL,
   status      VARCHAR(20) DEFAULT 'pending'
@@ -282,6 +282,7 @@ CREATE INDEX IF NOT EXISTS idx_tablets_org         ON tablets(organization_id);
 -- ============================================================
 -- Миграции (идемпотентные)
 -- ============================================================
--- Расширение channel для поддержки system-уведомлений
+-- Расширение channel: max → telegram, добавлен system
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;
-ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel IN ('max','email','system'));
+ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel IN ('telegram','email','system'));
+UPDATE notifications SET channel = 'telegram' WHERE channel = 'max';

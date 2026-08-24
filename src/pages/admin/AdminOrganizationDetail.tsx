@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { organizationsApi, offersApi } from '@/lib/api'
+import { organizationsApi, offersApi, pointsApi } from '@/lib/api'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
-  IconCheck, IconPlus,
+  IconCheck, IconPlus, IconClose,
 } from '@/components/ui/icons'
 
 export function AdminOrganizationDetail() {
@@ -12,6 +12,18 @@ export function AdminOrganizationDetail() {
   const [orgOffers, setOrgOffers] = useState<any[]>([])
   const [allOffers, setAllOffers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showPointForm, setShowPointForm] = useState(false)
+  const [showOfferForm, setShowOfferForm] = useState(false)
+  const [savingPoint, setSavingPoint] = useState(false)
+  const [savingOffer, setSavingOffer] = useState(false)
+  const [pointForm, setPointForm] = useState({
+    name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false,
+  })
+  const [offerForm, setOfferForm] = useState({
+    title: '', description: '', starts_at: '', ends_at: '', zone: 'all',
+    emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)',
+    coupon_count: '100', weight: '1',
+  })
 
   useEffect(() => {
     if (!id) return
@@ -25,6 +37,47 @@ export function AdminOrganizationDetail() {
     }).catch(err => console.error('[OrgDetail]', err))
       .finally(() => setLoading(false))
   }, [id])
+
+  const handleCreatePoint = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!id) return
+    setSavingPoint(true)
+    try {
+      await pointsApi.create({ ...pointForm, organization_id: id })
+      setShowPointForm(false)
+      setPointForm({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false })
+      // Перезагружаем данные организации
+      const orgData = await organizationsApi.get(id)
+      setOrg(orgData)
+    } catch (err: any) {
+      console.error('[Point create]', err)
+    } finally {
+      setSavingPoint(false)
+    }
+  }
+
+  const handleCreateOffer = async () => {
+    if (!id || !offerForm.title) return
+    setSavingOffer(true)
+    try {
+      await offersApi.create({
+        ...offerForm,
+        organization_id: id,
+        coupon_count: Number(offerForm.coupon_count),
+        weight: Number(offerForm.weight),
+      })
+      setShowOfferForm(false)
+      setOfferForm({ title: '', description: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100', weight: '1' })
+      // Перезагружаем акции
+      const offersData = await offersApi.list()
+      setOrgOffers(offersData.filter((o: any) => o.organization_id === id))
+      setAllOffers(offersData)
+    } catch (err) {
+      console.error('[Offer create]', err)
+    } finally {
+      setSavingOffer(false)
+    }
+  }
 
   if (loading) return <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>
   if (!org) return <div className="py-12 text-center text-loko-danger">Организация не найдена</div>
@@ -67,9 +120,8 @@ export function AdminOrganizationDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            
-            <button className="btn-outline"><IconPlus size={16} />Точка</button>
-            <button className="btn-brand"><IconPlus size={16} />Акция</button>
+            <button onClick={() => { setShowPointForm(!showPointForm); setShowOfferForm(false) }} className="btn-outline"><IconPlus size={16} />Точка</button>
+            <button onClick={() => { setShowOfferForm(!showOfferForm); setShowPointForm(false) }} className="btn-brand"><IconPlus size={16} />Акция</button>
           </div>
         </div>
 
@@ -88,12 +140,106 @@ export function AdminOrganizationDetail() {
         </div>
       </div>
 
+      {/* Форма создания точки */}
+      {showPointForm && (
+        <form onSubmit={handleCreatePoint} className="card mt-4 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-loko-text-primary">Новая точка</h3>
+            <button type="button" onClick={() => setShowPointForm(false)} className="text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Название точки *</label>
+              <input className="input w-full" value={pointForm.name} onChange={e => setPointForm(p => ({ ...p, name: e.target.value }))} required placeholder="ТРЦ Северный" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Адрес *</label>
+              <input className="input w-full" value={pointForm.address} onChange={e => setPointForm(p => ({ ...p, address: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Телефон</label>
+              <input className="input w-full" value={pointForm.phone} onChange={e => setPointForm(p => ({ ...p, phone: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Контактное имя</label>
+              <input className="input w-full" value={pointForm.contact_name} onChange={e => setPointForm(p => ({ ...p, contact_name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Email</label>
+              <input type="email" className="input w-full" value={pointForm.email} onChange={e => setPointForm(p => ({ ...p, email: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Часы работы</label>
+              <input className="input w-full" value={pointForm.working_hours} onChange={e => setPointForm(p => ({ ...p, working_hours: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="pt_has_tablet" checked={pointForm.has_tablet} onChange={e => setPointForm(p => ({ ...p, has_tablet: e.target.checked }))} className="h-4 w-4" />
+            <label htmlFor="pt_has_tablet" className="text-sm text-loko-text-primary">Есть планшет</label>
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={savingPoint} className="btn-brand disabled:opacity-50">{savingPoint ? 'Создание…' : 'Создать точку'}</button>
+            <button type="button" onClick={() => setShowPointForm(false)} className="btn-ghost">Отмена</button>
+          </div>
+        </form>
+      )}
+
+      {/* Форма создания акции */}
+      {showOfferForm && (
+        <div className="card mt-4 p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-loko-text-primary">Новая акция — {org.name}</h3>
+            <button onClick={() => setShowOfferForm(false)} className="text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
+              <input value={offerForm.title} onChange={e => setOfferForm(p => ({ ...p, title: e.target.value }))} className="input w-full" placeholder="Скидка 20% на кофе" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Дата начала</label>
+              <input type="date" value={offerForm.starts_at} onChange={e => setOfferForm(p => ({ ...p, starts_at: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Дата окончания</label>
+              <input type="date" value={offerForm.ends_at} onChange={e => setOfferForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+              <input value={offerForm.zone} onChange={e => setOfferForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="all" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Эмодзи</label>
+              <input value={offerForm.emoji} onChange={e => setOfferForm(p => ({ ...p, emoji: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Кол-во купонов</label>
+              <input type="number" value={offerForm.coupon_count} onChange={e => setOfferForm(p => ({ ...p, coupon_count: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Вес</label>
+              <input type="number" value={offerForm.weight} onChange={e => setOfferForm(p => ({ ...p, weight: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-loko-text-muted mb-1">Описание</label>
+            <textarea value={offerForm.description} onChange={e => setOfferForm(p => ({ ...p, description: e.target.value }))} className="input w-full min-h-[60px] resize-y" placeholder="Описание акции" />
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleCreateOffer} disabled={savingOffer || !offerForm.title} className="btn-brand disabled:opacity-50">
+              {savingOffer ? 'Создание…' : 'Создать акцию'}
+            </button>
+            <button onClick={() => setShowOfferForm(false)} className="btn-ghost">Отмена</button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Свои акции */}
         <div className="card p-5 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-base font-semibold text-loko-text-primary">Свои акции</div>
-            <button className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Создать</button>
+            <button onClick={() => { setShowOfferForm(!showOfferForm); setShowPointForm(false) }} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Создать</button>
           </div>
           <div className="flex flex-col gap-2">
             {orgOffers.length === 0 && (

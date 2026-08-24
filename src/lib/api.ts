@@ -96,6 +96,10 @@ export const couponsApi = {
   /** Найти купон по коду */
   findByCode: (code: string) =>
     request<any[]>(`/coupons?code=${encodeURIComponent(code)}`).then(rows => rows[0] ?? null),
+
+  /** Отменить/заблокировать купон (только админ) */
+  cancel: (id: string) =>
+    request<any>(`/coupons/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'cancelled' }) }),
 }
 
 // ─── Участники ───────────────────────────────────────────────

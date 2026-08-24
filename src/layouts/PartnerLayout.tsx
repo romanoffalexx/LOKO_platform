@@ -71,8 +71,8 @@ export const PartnerLayout: FC = () => {
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden sm:flex badge badge-success gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-loko-success" />
-              <span className="hidden md:inline">Подключены MAX / e-mail</span>
-              <span className="md:hidden">MAX</span>
+              <span className="hidden md:inline">Подключены Telegram / e-mail</span>
+              <span className="md:hidden">TG</span>
             </span>
           </div>
         </header>
