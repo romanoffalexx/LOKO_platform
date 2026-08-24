@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { pool } from '../db/pool.js'
+import { notify } from '../services/notify.js'
 
 export const notificationsRouter = Router()
 
@@ -23,13 +24,27 @@ notificationsRouter.get('/', async (_req: Request, res: Response) => {
   }
 })
 
-/** POST /api/notifications */
+/** POST /api/notifications — создать и отправить */
 notificationsRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { channel, event, recipient, status } = req.body
+    const { channel, event, recipient, subject, html, telegramText } = req.body
+    if (!channel || !event || !recipient) {
+      return res.status(400).json({ error: 'channel, event и recipient обязательны' })
+    }
+
+    // Записываем в БД + отправляем через канал
+    await notify({
+      channel,
+      event,
+      recipient,
+      subject,
+      html,
+      telegramText,
+    })
+
+    // Возвращаем последнюю запись
     const { rows } = await pool.query(
-      `INSERT INTO notifications (channel, event, recipient, status) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [channel, event, recipient, status ?? 'pending'],
+      `SELECT * FROM notifications ORDER BY created_at DESC LIMIT 1`
     )
     res.status(201).json(rows[0])
   } catch (err: any) {

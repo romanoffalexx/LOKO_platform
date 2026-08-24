@@ -3,6 +3,7 @@ import { pool } from '../db/pool.js'
 import { requireAdmin, requireAuth } from '../middleware/auth.js'
 import { sendEmail } from '../services/email.js'
 import { sendTelegramMessage } from '../services/telegram.js'
+import { notifyAdmins } from '../services/notify.js'
 
 export const ticketsRouter = Router()
 
@@ -65,35 +66,15 @@ ticketsRouter.post('/', requireAuth, async (req, res) => {
 
     const ticket = result.rows[0]
 
-    // Создаём системное уведомление для админки
-    await pool.query(
-      `INSERT INTO notifications (channel, event, recipient, status) VALUES ('system', $1, 'admin', 'delivered')`,
-      [`Новая заявка: ${subject}`],
-    )
-
     // Уведомления админу (email + Telegram)
-    const admins = await pool.query(
-      `SELECT email, telegram_chat_id FROM users
-       WHERE role = 'admin' AND is_active = true`
-    )
-
-    for (const admin of admins.rows) {
-      if (admin.email) {
-        await sendEmail(
-          admin.email,
-          `[ЛОКО] Новая заявка: ${subject}`,
-          `<p>Организация подала заявку:</p>
-           <p><strong>Тема:</strong> ${subject}</p>
-           <p><strong>Текст:</strong> ${message}</p>`
-        )
-      }
-      if (admin.telegram_chat_id) {
-        await sendTelegramMessage(
-          admin.telegram_chat_id,
-          `📩 <b>Новая заявка</b>\nТема: ${subject}\n\n${message}`
-        )
-      }
-    }
+    notifyAdmins({
+      event: `Новая заявка: ${subject}`,
+      subject: `[ЛОКО] Новая заявка: ${subject}`,
+      html: `<p>Организация подала заявку:</p>
+             <p><strong>Тема:</strong> ${subject}</p>
+             <p><strong>Текст:</strong> ${message}</p>`,
+      telegramText: `📩 <b>Новая заявка</b>\nТема: ${subject}\n\n${message}`,
+    }).catch(err => console.error('[Tickets] notifyAdmins error:', err.message))
 
     res.json(ticket)
   } catch (err: any) {
@@ -124,18 +105,31 @@ ticketsRouter.patch('/:id', requireAdmin, async (req, res) => {
 
     const ticket = result.rows[0]
 
-    // Уведомление партнёру при смене статуса
-    const org = await pool.query(
-      'SELECT email FROM organizations WHERE id = $1',
+    // Уведомление партнёру при смене статуса (email + Telegram)
+    const partner = await pool.query(
+      `SELECT u.email, u.telegram_chat_id
+       FROM users u
+       WHERE u.organization_id = $1 AND u.role = 'partner' AND u.is_active = true
+       LIMIT 1`,
       [ticket.organization_id]
     )
 
-    if (org.rows[0]?.email) {
+    const p = partner.rows[0]
+    if (p?.email) {
       await sendEmail(
-        org.rows[0].email,
+        p.email,
         `[ЛОКО] Заявка «${ticket.subject}» — статус: ${status}`,
         `<p>Статус вашей заявки изменён: <strong>${status}</strong></p>
          <p>Тема: ${ticket.subject}</p>`
+      )
+    }
+    if (p?.telegram_chat_id) {
+      const statusLabel: Record<string, string> = {
+        open: '🟡 Открыта', in_progress: '🔵 В работе', resolved: '✅ Решена', closed: '⚫️ Закрыта',
+      }
+      await sendTelegramMessage(
+        p.telegram_chat_id,
+        `📋 <b>Заявка «${ticket.subject}»</b>\nСтатус: ${statusLabel[status] || status}`
       )
     }
 

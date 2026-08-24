@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express'
 import { pool } from '../db/pool.js'
 import bcrypt from 'bcryptjs'
 import { sendEmail } from '../services/email.js'
+import { notifyAdmins } from '../services/notify.js'
 
 export const organizationsRouter = Router()
 
@@ -92,6 +93,17 @@ organizationsRouter.post('/', async (req: Request, res: Response) => {
     }
 
     res.status(201).json({ ...org, emailSent, partnerEmail: email || null, partnerPassword: email && password ? password : null })
+
+    // Уведомляем админов о новой организации (email + Telegram)
+    notifyAdmins({
+      event: `Новая организация: ${name}`,
+      subject: `[ЛОКО] Новая организация: ${name}`,
+      html: `<p>Создана новая организация:</p>
+             <p><b>Название:</b> ${name}</p>
+             <p><b>Адрес:</b> ${address}</p>
+             ${email ? `<p><b>Email партнёра:</b> ${email}</p>` : ''}`,
+      telegramText: `🏢 <b>Новая организация</b>\n${name}\n📍 ${address}${email ? `\n✉️ ${email}` : ''}`,
+    }).catch(err => console.error('[Org] notifyAdmins error:', err.message))
   } catch (err: any) {
     res.status(400).json({ error: err.message })
   }

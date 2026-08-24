@@ -10,7 +10,7 @@
     "server": "tsx server/index.ts",
     "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
     "db:init": "tsx -e \"import { initDatabase } from './server/db/pool.js'; initDatabase().then(() => process.exit(0))\"",
-        "seed": "tsx server/db/seed.ts"
+    "seed": "tsx server/db/seed.ts"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
@@ -30,7 +30,8 @@
     "react-router-dom": "^6.27.0",
     "recharts": "^2.13.0",
     "sharp": "^0.35.3",
-    "three": "^0.169.0"
+    "three": "^0.169.0",
+    "undici": "^8.10.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { pool } from '../db/pool.js'
 import { requireAdmin } from '../middleware/auth.js'
+import { notifyAdmins } from '../services/notify.js'
 
 export const couponsRouter = Router()
 
@@ -179,11 +180,12 @@ couponsRouter.post('/:id/redeem', async (req: Request, res: Response) => {
     await pool.query(`UPDATE offers SET total_redeemed = total_redeemed + 1 WHERE id = $1`, [rows[0].offer_id])
     await pool.query(`UPDATE leads SET redeemed = true WHERE coupon_id = $1`, [req.params.id])
 
-    // Системное уведомление
-    await pool.query(
-      `INSERT INTO notifications (channel, event, recipient, status) VALUES ('system', $1, 'admin', 'delivered')`,
-      [`Купон ${rows[0].code} погашён`],
-    )
+    // Уведомление админам (system + Telegram)
+    notifyAdmins({
+      event: `Купон ${rows[0].code} погашён`,
+      subject: `[ЛОКО] Купон ${rows[0].code} погашён`,
+      telegramText: `🎟 Купон <code>${rows[0].code}</code> погашён`,
+    }).catch(err => console.error('[Coupons] notify error:', err.message))
 
     res.json(rows[0])
   } catch (err: any) {
@@ -209,11 +211,12 @@ couponsRouter.patch('/:id', requireAdmin, async (req: Request, res: Response) =>
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Купон не найден' })
 
-    // Системное уведомление
-    await pool.query(
-      `INSERT INTO notifications (channel, event, recipient, status) VALUES ('system', $1, 'admin', 'delivered')`,
-      [`Купон ${rows[0].code} → ${status === 'cancelled' ? 'отменён' : 'истёк'}`],
-    )
+    // Уведомление админам
+    notifyAdmins({
+      event: `Купон ${rows[0].code} → ${status === 'cancelled' ? 'отменён' : 'истёк'}`,
+      subject: `[ЛОКО] Купон ${rows[0].code} ${status === 'cancelled' ? 'отменён' : 'истёк'}`,
+      telegramText: `🎟 Купон <code>${rows[0].code}</code> → ${status === 'cancelled' ? 'отменён' : 'истёк'}`,
+    }).catch(err => console.error('[Coupons] notify error:', err.message))
 
     res.json(rows[0])
   } catch (err: any) {
