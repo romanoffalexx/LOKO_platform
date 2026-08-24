@@ -51,7 +51,8 @@ const Countdown: FC<{ to: Date }> = ({ to }) => {
 export const TabletCoupon: FC = () => {
   const [won, setWon] = useState<any>(null)
   const [org, setOrg] = useState<any>(null)
-  const code = useMemo(() => genCode(), [])
+  // Код купона приходит с сервера (префикс = точка); genCode — только фолбэк
+  const code = useMemo(() => won?.coupon_code || genCode(), [won])
 
   useEffect(() => {
     // Читаем выигрыш из sessionStorage (сохранён в TabletSpin)
@@ -92,7 +93,7 @@ export const TabletCoupon: FC = () => {
     )
   }
 
-  const expiresAt = new Date(won.ends_at)
+  const expiresAt = new Date(won.expires_at ?? won.ends_at)
 
   return (
     <motion.div
@@ -126,7 +127,9 @@ export const TabletCoupon: FC = () => {
           <motion.div style={{ background: bgX }} className="absolute inset-0 bg-[linear-gradient(110deg,transparent,rgba(255,255,255,0.2),transparent)] bg-[length:200%_100%]" />
           <div className="absolute right-3 top-3 text-6xl drop-shadow-lg">{won.emoji}</div>
           <div className="absolute bottom-3 left-4 right-4">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-white/80">{won.organization_name}</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-white/80">
+              {won.organization_name}{won.point_name ? ` · ${won.point_name}` : ''}
+            </div>
             <div className="text-lg font-bold leading-tight text-white">{won.title}</div>
           </div>
         </div>

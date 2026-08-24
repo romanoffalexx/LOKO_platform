@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
-import { pointsApi, organizationsApi } from '@/lib/api'
-import { IconPlus, IconSearch, IconPin, IconTablet, IconTrash, IconEdit, IconClose } from '@/components/ui/icons'
+import { pointsApi, organizationsApi, tabletsApi } from '@/lib/api'
+import { copyToClipboard } from '@/lib/clipboard'
+import { YandexPointsMap } from '@/components/YandexPointsMap'
+import { IconPlus, IconPin, IconTablet, IconTrash, IconEdit, IconClose } from '@/components/ui/icons'
+
+function genPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
+  let pwd = ''
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+  return pwd
+}
 
 export function AdminPoints() {
   const [points, setPoints] = useState<any[]>([])
@@ -11,14 +20,19 @@ export function AdminPoints() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '', is_active: true })
   const [saving, setSaving] = useState(false)
+  const [tablets, setTablets] = useState<any[]>([])
+  const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
+  const [tabletEdit, setTabletEdit] = useState<{ id: string; login: string; password: string; showPwd: boolean } | null>(null)
+  const [savingTablet, setSavingTablet] = useState(false)
+  const [createdTabletInfo, setCreatedTabletInfo] = useState<{ pointName: string; login: string; password: string } | null>(null)
   const [form, setForm] = useState({
     organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false,
   })
 
   const load = () => {
     setLoading(true)
-    Promise.all([pointsApi.list(), organizationsApi.list()])
-      .then(([p, o]) => { setPoints(p); setOrgs(o) })
+    Promise.all([pointsApi.list(), organizationsApi.list(), tabletsApi.list()])
+      .then(([p, o, t]) => { setPoints(p); setOrgs(o); setTablets(t) })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }
@@ -58,9 +72,46 @@ export function AdminPoints() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await pointsApi.create(form)
+      const result = await pointsApi.create(form)
       setShowForm(false)
+      const pointName = form.name
       setForm({ organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false })
+      load()
+      // Если создан планшет — показываем попап с логином/паролем
+      if (result.tablet) {
+        setCreatedTabletInfo({ pointName, login: result.tablet.login, password: result.tablet.password })
+      }
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
+
+  const openTabletEdit = (t: any) => {
+    setTabletEdit({ id: t.id, login: t.login || '', password: t.password_plain || '', showPwd: true })
+  }
+
+  const handleSaveTablet = async () => {
+    if (!tabletEdit) return
+    setSavingTablet(true)
+    try {
+      const orig = tablets.find(t => t.id === tabletEdit.id)
+      const payload: Record<string, any> = { name: orig?.name }
+      if (tabletEdit.password && tabletEdit.password !== (orig?.password_plain || '')) payload.new_password = tabletEdit.password
+      await tabletsApi.update(tabletEdit.id, payload)
+      setTabletEdit(null)
+      load()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSavingTablet(false)
+    }
+  }
+
+  const handleDeleteTablet = async (id: string) => {
+    if (!confirm('Удалить планшет?')) return
+    try {
+      await tabletsApi.delete(id)
+      setExpandedPointId(null)
       load()
     } catch (err: any) {
       setError(err.message)
@@ -92,6 +143,13 @@ export function AdminPoints() {
       </div>
 
       {error && <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>}
+
+      {/* Яндекс.Карта со всеми точками */}
+      {points.length > 0 && (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-loko-bg-border" style={{ height: 400 }}>
+          <YandexPointsMap points={points} />
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="card mb-6 p-5 space-y-4">
@@ -145,7 +203,10 @@ export function AdminPoints() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {points.map(p => (
+        {points.map(p => {
+          const pointTablets = tablets.filter(t => t.point_id === p.id)
+          const isExpanded = expandedPointId === p.id
+          return (
           <div key={p.id} className="card p-5">
             {editingId === p.id ? (
               <form onSubmit={handleEdit} className="space-y-3">
@@ -192,18 +253,108 @@ export function AdminPoints() {
                   <button onClick={() => handleToggleActive(p)} className={`badge cursor-pointer ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>
                     {p.is_active ? 'Активна' : 'Неактивна'}
                   </button>
-                  {p.has_tablet && <span className="badge badge-pink"><IconTablet size={10} className="mr-1" />Планшет</span>}
+                  {p.has_tablet && (
+                    <button
+                      onClick={() => setExpandedPointId(isExpanded ? null : p.id)}
+                      className="badge badge-pink cursor-pointer"
+                      title="Показать планшет"
+                    >
+                      <IconTablet size={10} className="mr-1" />Планшет
+                    </button>
+                  )}
                 </div>
+
+                {/* Раскрытый планшет в режиме редактирования */}
+                {isExpanded && (
+                  <div className="mt-3 rounded-xl border border-loko-bg-border bg-loko-bg-base/40 p-3 space-y-2">
+                    {pointTablets.length === 0 && (
+                      <div className="text-xs text-loko-text-muted">Планшет ещё не создан.</div>
+                    )}
+                    {pointTablets.map(t => (
+                      <div key={t.id} className="space-y-2">
+                        {tabletEdit?.id === t.id ? (
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-[10px] text-loko-text-muted mb-1">Логин</label>
+                              <div className="flex items-center gap-2">
+                                <input value={tabletEdit.login} readOnly className="input w-full font-mono text-xs" />
+                                <button onClick={() => copyToClipboard(tabletEdit.login)} className="btn-ghost px-2" title="Копировать">📋</button>
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-loko-text-muted mb-1">Пароль</label>
+                              <div className="flex items-center gap-2">
+                                <input type={tabletEdit.showPwd ? 'text' : 'password'} value={tabletEdit.password} onChange={e => setTabletEdit(s => s ? { ...s, password: e.target.value } : s)} className="input w-full font-mono text-xs" />
+                                <button onClick={() => setTabletEdit(s => s ? { ...s, showPwd: !s.showPwd } : s)} className="btn-ghost px-2">{tabletEdit.showPwd ? '🙈' : '👁️'}</button>
+                                <button onClick={() => setTabletEdit(s => s ? { ...s, password: genPassword(), showPwd: true } : s)} className="btn-ghost px-2">🎲</button>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={handleSaveTablet} disabled={savingTablet} className="btn-brand text-xs disabled:opacity-50">{savingTablet ? '…' : 'Сохранить'}</button>
+                              <button onClick={() => setTabletEdit(null)} className="btn-ghost text-xs">Отмена</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-loko-pink/10 text-loko-pink"><IconTablet size={16} /></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold text-loko-text-primary">{t.name}</div>
+                              <div className="font-mono text-[10px] text-loko-pink">{t.login} · {t.password_plain || 'пароль не задан'}</div>
+                            </div>
+                            <button onClick={() => openTabletEdit(t)} className="text-loko-text-muted hover:text-loko-violet" title="Редактировать"><IconEdit size={14} /></button>
+                            <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-red-400" title="Удалить"><IconTrash size={14} /></button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {points.length === 0 && !loading && (
         <div className="card p-12 text-center">
           <div className="text-lg font-semibold text-loko-text-primary">Нет точек</div>
           <p className="mt-1 text-sm text-loko-text-secondary">Добавьте первую точку партнёра.</p>
+        </div>
+      )}
+
+      {/* Попап с данными созданного планшета */}
+      {createdTabletInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setCreatedTabletInfo(null)}>
+          <div className="card mx-4 w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-loko-pink/10 text-loko-pink">
+                <IconTablet size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-loko-text-primary">Планшет создан</h3>
+                <p className="text-sm text-loko-text-muted">{createdTabletInfo.pointName}</p>
+              </div>
+              <button onClick={() => setCreatedTabletInfo(null)} className="ml-auto text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+            </div>
+
+            <div className="rounded-xl border border-loko-bg-border bg-loko-bg-base/50 p-4 space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-loko-text-muted">Данные для входа</div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-loko-text-secondary">Логин:</span>
+                <code className="text-sm font-semibold text-loko-text-primary">{createdTabletInfo.login}</code>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-loko-text-secondary">Пароль:</span>
+                <code className="text-sm font-semibold text-loko-text-primary">{createdTabletInfo.password}</code>
+              </div>
+              <button onClick={() => copyToClipboard(`Логин: ${createdTabletInfo.login}\nПароль: ${createdTabletInfo.password}`)} className="btn-ghost w-full text-xs">
+                Скопировать данные
+              </button>
+            </div>
+
+            <button onClick={() => setCreatedTabletInfo(null)} className="btn-brand w-full">Готово</button>
+          </div>
         </div>
       )}
     </div>

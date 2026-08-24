@@ -10,9 +10,10 @@ tabletsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { organization_id, status } = req.query
     let sql = `
-      SELECT t.*, org.name AS organization_name
+      SELECT t.*, org.name AS organization_name, pt.name AS point_name
       FROM tablets t
       LEFT JOIN organizations org ON org.id = t.organization_id
+      LEFT JOIN points pt ON pt.id = t.point_id
     `
     const conditions: string[] = []
     const params: any[] = []
@@ -34,8 +35,10 @@ tabletsRouter.get('/', async (req: Request, res: Response) => {
 tabletsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(
-      `SELECT t.*, org.name AS organization_name
-       FROM tablets t LEFT JOIN organizations org ON org.id = t.organization_id
+      `SELECT t.*, org.name AS organization_name, pt.name AS point_name
+       FROM tablets t
+       LEFT JOIN organizations org ON org.id = t.organization_id
+       LEFT JOIN points pt ON pt.id = t.point_id
        WHERE t.id = $1`,
       [req.params.id],
     )
@@ -50,6 +53,15 @@ tabletsRouter.get('/:id', async (req: Request, res: Response) => {
 tabletsRouter.post('/', async (req: Request, res: Response) => {
   try {
     const { name, serial, organization_id, point, point_id, zone } = req.body
+
+    // Правило: 1 точка = 1 планшет. Планшет без точки недопустим
+    if (!point_id) {
+      return res.status(400).json({ error: 'Планшет создаётся только привязанным к точке' })
+    }
+    const { rows: exists } = await pool.query('SELECT id FROM tablets WHERE point_id = $1', [point_id])
+    if (exists.length > 0) {
+      return res.status(400).json({ error: 'На этой точке уже есть планшет (1 точка = 1 планшет)' })
+    }
 
     // Генерируем логин и пароль для планшета
     const login = `tablet_${Date.now().toString(36)}`
@@ -124,6 +136,20 @@ function generatePassword(): string {
 tabletsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const { new_password, ...rest } = req.body
+
+    // Правило «1 точка = 1 планшет»: запрет отвязки от точки и дублей при смене точки
+    if (rest.point_id !== undefined) {
+      if (!rest.point_id) {
+        return res.status(400).json({ error: 'Планшет должен быть привязан к точке' })
+      }
+      const { rows: dup } = await pool.query(
+        'SELECT id FROM tablets WHERE point_id = $1 AND id != $2',
+        [rest.point_id, req.params.id],
+      )
+      if (dup.length > 0) {
+        return res.status(400).json({ error: 'На этой точке уже есть планшет (1 точка = 1 планшет)' })
+      }
+    }
 
     // Если передан новый пароль — хэшируем и сохраняем
     if (new_password) {

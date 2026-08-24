@@ -194,7 +194,7 @@ export function AdminTablets() {
                 </div>
                 <div className="md:col-span-2 font-mono text-xs text-loko-text-muted">{t.serial}{t.login && <div className="text-loko-pink">{t.login}</div>}{t.password_plain && <div className="text-loko-text-muted">••••••</div>}</div>
                 <div className="md:col-span-3 truncate text-loko-text-secondary">{t.organization_name}</div>
-                <div className="md:col-span-2 text-xs text-loko-text-muted">{t.point}</div>
+                <div className="md:col-span-2 text-xs text-loko-text-muted">{t.point_name || t.point}</div>
                 <div className="flex items-center gap-3 md:contents">
                   <div className="md:col-span-1 text-xs text-loko-text-muted">v{t.app_version}</div>
                   <div className="md:col-span-1 text-xs text-loko-text-muted">{t.last_seen ? new Date(t.last_seen).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>

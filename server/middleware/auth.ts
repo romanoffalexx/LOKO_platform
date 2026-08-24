@@ -22,7 +22,7 @@ export function requireRole(...roles: string[]) {
     if (!req.session?.userId) {
       return res.status(401).json({ error: 'Необходима авторизация' })
     }
-    if (!roles.includes(req.session.role)) {
+    if (!roles.includes(req.session.role ?? '')) {
       return res.status(403).json({ error: 'Доступ запрещён' })
     }
     next()

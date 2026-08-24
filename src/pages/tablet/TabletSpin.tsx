@@ -2,7 +2,7 @@ import { type FC, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
-import { offersApi } from '@/lib/api'
+import { offersApi, tabletAuthApi } from '@/lib/api'
 import { IconSpark, IconArrowRight } from '@/components/ui/icons'
 
 /* ─── Типы ──────────────────────────────────────────────── */
@@ -37,7 +37,7 @@ const ReelCard: FC<{ offer: OfferItem; highlight?: boolean }> = ({ offer, highli
         ? 'border-loko-pink/50 bg-gradient-to-r from-loko-pink/15 via-loko-bg-elevated to-loko-purple/15 shadow-glow'
         : 'border-loko-bg-border/60 bg-loko-bg-elevated/50'
     }`}
-    style={{ height: IH - 10, flexShrink: 0 }}
+    style={{ height: IH - 10, marginBottom: 10, flexShrink: 0 }}
   >
     <div
       className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl text-3xl ${
@@ -74,7 +74,7 @@ const SlotDrum: FC<{
 
     const R = items.length
     // Целевая позиция: winner в центре видимого окна (VISIBLE=3, центр = индекс 1)
-    const landIdx = winnerIndex + (REPEATS - 1) * R
+    const landIdx = winnerIndex + (REPEATS - 2) * R
     const viewCenter = (VISIBLE * IH) / 2
     const target = landIdx * IH + IH / 2 - viewCenter
 
@@ -164,7 +164,7 @@ const SlotDrum: FC<{
           <ReelCard
             key={i}
             offer={offer}
-            highlight={spinning ? false : i % items.length === winnerIndex && i >= (REPEATS - 1) * items.length}
+            highlight={spinning ? false : i % items.length === winnerIndex && i >= (REPEATS - 2) * items.length && i < (REPEATS - 1) * items.length}
           />
         ))}
       </div>
@@ -178,8 +178,12 @@ export const TabletSpin: FC = () => {
   const [offers, setOffers] = useState<OfferItem[]>([])
   const [spinning, setSpinning] = useState(false)
   const [done, setDone] = useState(false)
+  const [lost, setLost] = useState(false)
+  const [lostMessage, setLostMessage] = useState('')
+  const [apiBusy, setApiBusy] = useState(false)
   const [error, setError] = useState('')
   const winnerRef = useRef(0)
+  const spinResultRef = useRef<any>(null)
 
   useEffect(() => {
     offersApi
@@ -191,19 +195,78 @@ export const TabletSpin: FC = () => {
       .catch(() => setOffers(FALLBACK))
   }, [])
 
-  const start = useCallback(() => {
-    if (offers.length === 0 || spinning) return
-    winnerRef.current = Math.floor(Math.random() * offers.length)
-    setDone(false)
-    setSpinning(true)
-  }, [offers.length, spinning])
+  const start = useCallback(async () => {
+    if (offers.length === 0 || spinning || apiBusy) return
+    setApiBusy(true)
+    setError('')
+    try {
+      // Данные участника, введённые на шаге регистрации
+      const reg = JSON.parse(sessionStorage.getItem('loko_register') || '{}')
+      if (!reg.phone || !reg.name) {
+        nav('/tablet/register')
+        return
+      }
+
+      // Серверный розыгрыш: создаёт участника, купон и лид в БД
+      const result = await tabletAuthApi.spin(reg.name, reg.phone)
+      spinResultRef.current = result
+
+      if (result.won && result.offer) {
+        // Синхронизируем барабан с серверным победителем
+        let idx = offers.findIndex(o => o.id === result.offer.offer_id)
+        if (idx === -1) idx = offers.findIndex(o => o.title === result.offer.title)
+        if (idx === -1) {
+          // Выигрышной акции нет в ленте — добавляем её
+          const extra: OfferItem = {
+            id: result.offer.offer_id,
+            title: result.offer.title,
+            emoji: result.offer.emoji || '🎁',
+            organization_name: result.offer.org_name || '',
+            bg_gradient: result.offer.bg_gradient || '',
+          }
+          idx = offers.length
+          setOffers(prev => [...prev, extra])
+        }
+        winnerRef.current = idx
+      } else {
+        winnerRef.current = Math.floor(Math.random() * offers.length)
+      }
+
+      setLost(false)
+      setDone(false)
+      setSpinning(true)
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось выполнить розыгрыш. Обратитесь к сотруднику.')
+    } finally {
+      setApiBusy(false)
+    }
+  }, [offers, spinning, apiBusy, nav])
 
   const onDone = useCallback(() => {
     setSpinning(false)
+    const result = spinResultRef.current
+
+    // Сервер сказал «не выиграл» — показываем экран проигрыша
+    if (result && result.won === false) {
+      setLost(true)
+      setLostMessage(result.message || 'К сожалению, вы не выиграли в этот раз. Попробуйте на другой точке!')
+      return
+    }
+
     setDone(true)
-    // Сохраняем выигрыш для страницы купона
+    // Сохраняем выигрыш + данные купона с сервера для страницы купона
     const winner = offers[winnerRef.current]
-    if (winner) sessionStorage.setItem('loko_winner', JSON.stringify(winner))
+    if (winner) {
+      sessionStorage.setItem('loko_winner', JSON.stringify({
+        ...winner,
+        description: result?.offer?.description ?? '',
+        organization_id: result?.offer?.organization_id ?? (winner as any).organization_id,
+        ends_at: result?.offer?.ends_at ?? (winner as any).ends_at,
+        coupon_code: result?.coupon_code,
+        point_name: result?.point_name,
+        expires_at: result?.expires_at,
+      }))
+    }
   }, [offers])
 
   /* Загрузка / ошибка */
@@ -238,9 +301,13 @@ export const TabletSpin: FC = () => {
         <p className="mt-1 text-sm text-loko-text-secondary">
           {spinning
             ? 'Выбираем победителя…'
-            : done
-              ? 'Готово! Покажите купон на кассе'
-              : 'Коснитесь кнопки, чтобы запустить'}
+            : apiBusy
+              ? 'Определяем приз…'
+              : done
+                ? 'Готово! Покажите купон на кассе'
+                : lost
+                  ? ''
+                  : 'Коснитесь кнопки, чтобы запустить'}
         </p>
       </div>
 
@@ -259,13 +326,14 @@ export const TabletSpin: FC = () => {
 
         {/* CTA-оверлей */}
         <AnimatePresence>
-          {!spinning && !done && (
+          {!spinning && !done && !lost && (
             <motion.button
               key="cta"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               onClick={start}
+              disabled={apiBusy}
               className="absolute inset-0 flex items-center justify-center rounded-3xl bg-loko-bg-base/40 backdrop-blur-sm"
             >
               <div className="flex flex-col items-center gap-2">
@@ -276,12 +344,44 @@ export const TabletSpin: FC = () => {
                 >
                   <IconSpark size={32} />
                 </motion.div>
-                <div className="text-sm font-semibold text-white drop-shadow-md">Запустить</div>
+                <div className="text-sm font-semibold text-white drop-shadow-md">
+                  {apiBusy ? 'Определяем приз…' : 'Запустить'}
+                </div>
               </div>
             </motion.button>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Ошибка розыгрыша */}
+      {error && (
+        <div className="mt-3 rounded-2xl border border-loko-pink/40 bg-loko-pink/10 p-3 text-center text-sm text-loko-text-primary">
+          {error}
+        </div>
+      )}
+
+      {/* Экран проигрыша */}
+      <AnimatePresence>
+        {lost && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: 'spring', damping: 12, stiffness: 250, delay: 0.2 }}
+            className="mt-5"
+          >
+            <div className="card-elevated relative overflow-hidden border-loko-bg-border bg-loko-bg-elevated p-6 text-center">
+              <div className="relative mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-loko-bg-surface text-3xl">
+                😔
+              </div>
+              <div className="relative text-lg font-bold text-loko-text-primary">В этот раз не повезло</div>
+              <div className="relative mt-2 text-sm text-loko-text-secondary">{lostMessage}</div>
+              <button onClick={() => nav('/tablet')} className="btn-ghost mt-4 w-full">
+                На главную
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Вспышка экрана при выигрыше */}
       <AnimatePresence>

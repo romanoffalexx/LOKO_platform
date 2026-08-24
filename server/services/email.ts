@@ -1,14 +1,23 @@
 import nodemailer from 'nodemailer'
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: (Number(process.env.SMTP_PORT) || 465) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-})
+let transporter: nodemailer.Transporter | null = null
+
+// Ленивая инициализация: переменные окружения читаются в момент первой отправки,
+// а не при импорте модуля (dotenv.config() в index.ts выполняется позже импортов)
+function getTransporter(): nodemailer.Transporter {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 465,
+      secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    })
+  }
+  return transporter
+}
 
 /**
  * Отправить email-уведомление.
@@ -20,7 +29,7 @@ export async function sendEmail(to: string, subject: string, html: string) {
     return
   }
   try {
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to,
       subject,

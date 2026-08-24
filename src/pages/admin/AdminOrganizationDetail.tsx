@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom'
 import { organizationsApi, offersApi, pointsApi, tabletsApi, screensApi, couponsApi, leadsApi } from '@/lib/api'
 import { validateLogo } from '@/lib/image'
 import { copyToClipboard } from '@/lib/clipboard'
-import { YandexPointsMap } from '@/components/YandexPointsMap'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
   IconCheck, IconPlus, IconClose, IconEdit,
@@ -27,7 +26,6 @@ export function AdminOrganizationDetail() {
   const [leads, setLeads] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'offers' | 'tablets' | 'monitors' | 'coupons' | 'participants' | 'points'>('offers')
   const [points, setPoints] = useState<any[]>([])
-  const [showTabletForm, setShowTabletForm] = useState(false)
   const [showMonitorForm, setShowMonitorForm] = useState(false)
   const [savingTablet, setSavingTablet] = useState(false)
   const [savingMonitor, setSavingMonitor] = useState(false)
@@ -165,31 +163,6 @@ export function AdminOrganizationDetail() {
       console.error('[Offer create]', err)
     } finally {
       setSavingOffer(false)
-    }
-  }
-
-  const handleCreateTablet = async () => {
-    if (!id || !tabletForm.name) return
-    setSavingTablet(true)
-    try {
-      const result = await tabletsApi.create({ ...tabletForm, organization_id: id })
-      setShowTabletForm(false)
-      setTabletForm({ name: '', serial: '', point: '', point_id: '', zone: '', login: '', password: '' })
-      const data = await tabletsApi.list({ organization_id: id })
-      setTablets(data)
-
-      // Показываем окно с данными для входа
-      setCreatedTabletInfo({
-        name: result.name || tabletForm.name,
-        login: result.login,
-        password: result.password,
-        emailSent: result.emailSent,
-        partnerEmail: result.partnerEmail,
-      })
-    } catch (err) {
-      console.error('[Tablet create]', err)
-    } finally {
-      setSavingTablet(false)
     }
   }
 
@@ -711,10 +684,6 @@ export function AdminOrganizationDetail() {
               <div className="text-base font-semibold text-loko-text-primary">Точки</div>
               <button onClick={() => setShowPointForm(!showPointForm)} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Добавить</button>
             </div>
-            {/* Яндекс.Карта */}
-            <div className="mb-4 overflow-hidden rounded-2xl border border-loko-bg-border" style={{ height: 400 }}>
-              <YandexPointsMap points={points} />
-            </div>
             {/* Список точек */}
             <div className="flex flex-col gap-2">
               {points.length === 0 && (
@@ -784,52 +753,10 @@ export function AdminOrganizationDetail() {
         {/* ── Планшеты ── */}
         {activeTab === 'tablets' && (
           <div className="card p-5">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-base font-semibold text-loko-text-primary">Планшеты</div>
-              <button onClick={() => setShowTabletForm(!showTabletForm)} className="btn-outline px-3 py-1.5 text-xs"><IconPlus size={14} />Добавить</button>
+              <div className="text-right text-xs text-loko-text-muted">1 точка = 1 планшет. Создание — при добавлении точки во вкладке «Точки»</div>
             </div>
-            {showTabletForm && (
-              <div className="mb-4 rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-4 space-y-3">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Название *</label>
-                    <input value={tabletForm.name} onChange={e => setTabletForm(p => ({ ...p, name: e.target.value }))} className="input w-full" placeholder="Планшет 1" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Серийный номер</label>
-                    <input value={tabletForm.serial} onChange={e => setTabletForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" placeholder="SN-001" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Точка *</label>
-                    <select
-                      value={tabletForm.point_id}
-                      onChange={e => {
-                        const pid = e.target.value
-                        const selected = points.find(p => p.id === pid)
-                        setTabletForm(p => ({ ...p, point_id: pid, point: selected?.name || '' }))
-                      }}
-                      className="input w-full"
-                    >
-                      <option value="">— выберите точку —</option>
-                      {points.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.address})</option>
-                      ))}
-                    </select>
-                    {points.length === 0 && (
-                      <div className="mt-1 text-xs text-loko-text-muted">Сначала создайте точку во вкладке «Точки»</div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
-                    <input value={tabletForm.zone} onChange={e => setTabletForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="center" />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={handleCreateTablet} disabled={savingTablet || !tabletForm.name || !tabletForm.point_id} className="btn-brand disabled:opacity-50">{savingTablet ? 'Создание…' : 'Создать'}</button>
-                  <button onClick={() => setShowTabletForm(false)} className="btn-ghost">Отмена</button>
-                </div>
-              </div>
-            )}
             <div className="flex flex-col gap-2">
               {tablets.length === 0 && (
                 <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
@@ -860,7 +787,6 @@ export function AdminOrganizationDetail() {
                             }}
                             className="input w-full"
                           >
-                            <option value="">— не привязана —</option>
                             {points.map(p => (
                               <option key={p.id} value={p.id}>{p.name} ({p.address})</option>
                             ))}

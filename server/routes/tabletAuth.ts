@@ -190,7 +190,7 @@ tabletAuthRouter.post('/spin', async (req, res) => {
         `INSERT INTO participants (name, phone, pdn_consent, marketing_consent, pdn_consent_at, total_participations)
          VALUES ($1, $2, true, true, now(), 1)
          RETURNING id`,
-        [name]
+        [name, phone]
       )
     } else {
       await pool.query(
@@ -215,9 +215,12 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     }
 
     // ── Генерация купона ──
-    const orgPrefix = (winner.org_name || 'prize').slice(0, 3).toUpperCase()
+    // Префикс кода = аббревиатура точки (идентификация купона по точке)
+    const { rows: pointRows } = await pool.query('SELECT name FROM points WHERE id = $1', [pointId])
+    const pointName: string = pointRows[0]?.name ?? ''
+    const pointPrefix = (pointName.replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '').slice(0, 4) || 'PNT').toUpperCase()
     const uniqueNum = Date.now().toString(36).toUpperCase().slice(-6)
-    const couponCode = `${orgPrefix}-${uniqueNum}`
+    const couponCode = `${pointPrefix}-${uniqueNum}`
 
     // Срок купона = конец акции (offer.ends_at), а не +30 дней
     const expiresAt = winner.ends_at ?? new Date(Date.now() + 30 * 86400000)
@@ -266,12 +269,16 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     res.json({
       won: true,
       offer: {
+        offer_id: winner.offer_id,
+        organization_id: winner.offer_org_id,
         title: winner.title,
         description: winner.description,
         emoji: winner.emoji,
         bg_gradient: winner.bg_gradient,
         org_name: winner.org_name,
+        ends_at: winner.ends_at,
       },
+      point_name: pointName,
       coupon_code: couponCode,
       expires_at: expiresAt,
     })
