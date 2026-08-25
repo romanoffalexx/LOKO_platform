@@ -54,7 +54,7 @@ export function AdminOrganizationDetail() {
   const [offerForm, setOfferForm] = useState({
     title: '', description: '', starts_at: '', ends_at: '', zone: 'all',
     emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)',
-    coupon_count: '100', weight: '1',
+    coupon_count: '100',
   })
 
   useEffect(() => {
@@ -151,10 +151,9 @@ export function AdminOrganizationDetail() {
         ...offerForm,
         organization_id: id,
         coupon_count: Number(offerForm.coupon_count),
-        weight: Number(offerForm.weight),
       })
       setShowOfferForm(false)
-      setOfferForm({ title: '', description: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100', weight: '1' })
+      setOfferForm({ title: '', description: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100' })
       // Перезагружаем акции
       const offersData = await offersApi.list()
       setOrgOffers(offersData.filter((o: any) => o.organization_id === id))
@@ -277,7 +276,6 @@ export function AdminOrganizationDetail() {
       emoji: o.emoji || '🎁',
       bg_gradient: o.bg_gradient || 'linear-gradient(135deg, #A855F7, #EC4899)',
       coupon_count: String(o.coupon_count ?? 100),
-      weight: String(o.weight ?? 1),
     })
     setShowOfferForm(false)
   }
@@ -295,7 +293,6 @@ export function AdminOrganizationDetail() {
         emoji: offerForm.emoji,
         bg_gradient: offerForm.bg_gradient,
         coupon_count: Number(offerForm.coupon_count),
-        weight: Number(offerForm.weight),
       })
       setEditingOfferId(null)
       const offersData = await offersApi.list()

@@ -102,7 +102,6 @@ export function AdminOfferDetail() {
               <div className="mt-1 text-sm text-loko-text-secondary">{offer.organization_name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-loko-text-muted">
                 <span>Период: {offer.starts_at?.slice(0, 10)} → {offer.ends_at?.slice(0, 10)}</span>
-                <span>Вес: {offer.weight}</span>
               </div>
             </div>
           </div>
@@ -113,12 +112,11 @@ export function AdminOfferDetail() {
           </div>
         </div>
 
-        <div className="relative mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="relative mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
           {[
             { label: 'Выдано купонов', value: offer.total_issued ?? 0 },
             { label: 'Погашено', value: offer.total_redeemed ?? 0 },
             { label: 'Привязано точек', value: pointOffers.length },
-            { label: 'Вес в барабане', value: offer.weight },
           ].map(m => (
             <div key={m.label} className="rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-4">
               <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">{m.label}</div>

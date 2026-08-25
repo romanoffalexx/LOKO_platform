@@ -32,7 +32,6 @@ export interface Offer {
   bgGradient: string
   startsAt: string
   endsAt: string
-  weight: number
   zone: string
   allowedOrgIds: string[]
   status: OfferStatus

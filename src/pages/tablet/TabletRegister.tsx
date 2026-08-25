@@ -8,8 +8,9 @@ function normalizePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
   if (digits.length === 0) return ''
   let n = digits
+  // 8 → 7; если ввели без кода страны (10 цифр) — добавляем 7
   if (n[0] === '8') n = '7' + n.slice(1)
-  if (n[0] !== '7') n = '7' + n
+  else if (n.length <= 10) n = '7' + n
   return '+' + n.slice(0, 11)
 }
 
@@ -32,7 +33,7 @@ function formatPhone(input: string): string {
 
 export const TabletRegister: FC = () => {
   const nav = useNavigate()
-  const [phoneRaw, setPhoneRaw] = useState('+7 (9')
+  const [phoneRaw, setPhoneRaw] = useState('')
   const [name, setName] = useState('')
   const [existing, setExisting] = useState<{ id: string; name: string } | null>(null)
   const [searching, setSearching] = useState(false)

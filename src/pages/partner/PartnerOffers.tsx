@@ -89,7 +89,7 @@ export const PartnerOffers: FC = () => {
                 <div className="flex items-center gap-2 text-xs text-loko-text-muted">
                   <IconClock size={12} />{o.starts_at?.slice(0, 10)} → {o.ends_at?.slice(0, 10)}
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-2 gap-2 text-center">
                   <div className="rounded-lg bg-loko-bg-base/40 p-2">
                     <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Выдано</div>
                     <div className="text-sm font-semibold text-loko-text-primary">{o.total_issued ?? 0}</div>
@@ -97,10 +97,6 @@ export const PartnerOffers: FC = () => {
                   <div className="rounded-lg bg-loko-bg-base/40 p-2">
                     <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Погаш.</div>
                     <div className="text-sm font-semibold text-loko-pink">{o.total_redeemed ?? 0}</div>
-                  </div>
-                  <div className="rounded-lg bg-loko-bg-base/40 p-2">
-                    <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Вес</div>
-                    <div className="text-sm font-semibold text-loko-text-primary">{o.weight}</div>
                   </div>
                 </div>
                 <span className={`badge ${o.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>

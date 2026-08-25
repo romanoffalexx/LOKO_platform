@@ -14,7 +14,7 @@ export function AdminOffers() {
     title: '', description: '', organization_id: '',
     starts_at: '', ends_at: '', zone: 'all',
     emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)',
-    coupon_count: '100', weight: '1',
+    coupon_count: '100',
   })
 
   const reload = () => {
@@ -35,10 +35,9 @@ export function AdminOffers() {
         ...form,
         organization_id: form.organization_id,
         coupon_count: Number(form.coupon_count),
-        weight: Number(form.weight),
       })
       setShowCreate(false)
-      setForm({ title: '', description: '', organization_id: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100', weight: '1' })
+      setForm({ title: '', description: '', organization_id: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100' })
       reload()
     } catch (err) {
       console.error('[Offer create]', err)
@@ -55,7 +54,6 @@ export function AdminOffers() {
       { key: 'zone', label: 'Зона' },
       { key: 'total_issued', label: 'Выдано' },
       { key: 'total_redeemed', label: 'Погашено' },
-      { key: 'weight', label: 'Вес' },
       { key: 'starts_at', label: 'Начало' },
       { key: 'ends_at', label: 'Конец' },
     ])
@@ -119,10 +117,6 @@ export function AdminOffers() {
               <label className="block text-xs font-medium text-loko-text-muted mb-1">Кол-во купонов</label>
               <input type="number" value={form.coupon_count} onChange={e => setForm(p => ({ ...p, coupon_count: e.target.value }))} className="input w-full" />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-loko-text-muted mb-1">Вес</label>
-              <input type="number" value={form.weight} onChange={e => setForm(p => ({ ...p, weight: e.target.value }))} className="input w-full" />
-            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-loko-text-muted mb-1">Описание</label>
@@ -168,7 +162,7 @@ export function AdminOffers() {
                 <IconPin size={12} />{o.zone}
               </div>
               <p className="line-clamp-2 text-sm text-loko-text-secondary">{o.description}</p>
-              <div className="grid grid-cols-3 gap-2 pt-2 text-center">
+              <div className="grid grid-cols-2 gap-2 pt-2 text-center">
                 <div className="rounded-lg bg-loko-bg-base/40 p-2">
                   <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Выдано</div>
                   <div className="text-sm font-semibold text-loko-text-primary">{o.total_issued}</div>
@@ -176,10 +170,6 @@ export function AdminOffers() {
                 <div className="rounded-lg bg-loko-bg-base/40 p-2">
                   <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Погаш.</div>
                   <div className="text-sm font-semibold text-loko-pink">{o.total_redeemed}</div>
-                </div>
-                <div className="rounded-lg bg-loko-bg-base/40 p-2">
-                  <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Вес</div>
-                  <div className="text-sm font-semibold text-loko-text-primary">{o.weight}</div>
                 </div>
               </div>
               <div className="flex items-center justify-between pt-2">

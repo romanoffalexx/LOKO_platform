@@ -26,26 +26,20 @@ offersRouter.get('/', async (req: Request, res: Response) => {
 })
 
 /**
- * POST /api/offers/spin — барабан: выбрать случайную акцию по весам.
+ * POST /api/offers/spin — барабан: выбрать случайную акцию (равномерно).
  * Возвращает выбранную акцию.
  * ВАЖНО: маршрут зарегистрирован ДО /:id, чтобы не конфликтовать.
  */
 offersRouter.post('/spin', async (_req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, title, weight, organization_id
+      `SELECT id, title, organization_id
        FROM offers WHERE status = 'active'`,
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Нет активных акций' })
 
-    // Взвешенный рандом
-    const totalWeight = rows.reduce((s: number, r: any) => s + r.weight, 0)
-    let rand = Math.random() * totalWeight
-    let winner = rows[0]
-    for (const r of rows) {
-      rand -= r.weight
-      if (rand <= 0) { winner = r; break }
-    }
+    // Равномерный случайный выбор
+    const winner = rows[Math.floor(Math.random() * rows.length)]
 
     // Инкрементируем total_issued
     await pool.query(`UPDATE offers SET total_issued = total_issued + 1 WHERE id = $1`, [winner.id])
@@ -77,18 +71,18 @@ offersRouter.post('/', async (req: Request, res: Response) => {
   try {
     const {
       title, organization_id, description, emoji, bg_gradient,
-      starts_at, ends_at, weight, zone, allowed_org_ids,
+      starts_at, ends_at, zone, allowed_org_ids,
     } = req.body
     if (!title || !organization_id) return res.status(400).json({ error: 'title и organization_id обязательны' })
     const now = new Date()
     const defaultEnd = new Date(now.getTime() + 7 * 24 * 3600 * 1000) // +7 дней
     const { rows } = await pool.query(
       `INSERT INTO offers
-        (title, organization_id, description, emoji, bg_gradient, starts_at, ends_at, weight, zone, allowed_org_ids)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        (title, organization_id, description, emoji, bg_gradient, starts_at, ends_at, zone, allowed_org_ids)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [title, organization_id, description ?? '', emoji ?? '🎁',
        bg_gradient ?? 'linear-gradient(135deg, #A855F7 0%, #7C3AED 100%)',
-       starts_at || now, ends_at || defaultEnd, weight ?? 10, zone ?? '', allowed_org_ids ?? []],
+       starts_at || now, ends_at || defaultEnd, zone ?? '', allowed_org_ids ?? []],
     )
     res.status(201).json(rows[0])
   } catch (err: any) {
@@ -99,7 +93,7 @@ offersRouter.post('/', async (req: Request, res: Response) => {
 /** PATCH /api/offers/:id — обновить акцию */
 offersRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const allowed = ['title','organization_id','description','emoji','bg_gradient','starts_at','ends_at','weight','zone','allowed_org_ids','status','total_issued','total_redeemed','time_from','time_to']
+    const allowed = ['title','organization_id','description','emoji','bg_gradient','starts_at','ends_at','zone','allowed_org_ids','status','total_issued','total_redeemed','time_from','time_to']
     const fields = Object.entries(req.body).filter(([k]) => allowed.includes(k))
     if (fields.length === 0) return res.status(400).json({ error: 'Нет валидных полей' })
     const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
@@ -131,18 +125,12 @@ offersRouter.post('/:id/spin', async (req: Request, res: Response) => {
   // Перенаправляем на общий спин-эндпоинт
   try {
     const { rows } = await pool.query(
-      `SELECT id, title, weight, organization_id
+      `SELECT id, title, organization_id
        FROM offers WHERE status = 'active'`,
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Нет активных акций' })
 
-    const totalWeight = rows.reduce((s: number, r: any) => s + r.weight, 0)
-    let rand = Math.random() * totalWeight
-    let winner = rows[0]
-    for (const r of rows) {
-      rand -= r.weight
-      if (rand <= 0) { winner = r; break }
-    }
+    const winner = rows[Math.floor(Math.random() * rows.length)]
 
     res.json(winner)
   } catch (err: any) {

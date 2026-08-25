@@ -75,7 +75,6 @@ CREATE TABLE IF NOT EXISTS offers (
   bg_gradient     VARCHAR(255) DEFAULT 'linear-gradient(135deg, #A855F7 0%, #7C3AED 100%)',
   starts_at       TIMESTAMPTZ  NOT NULL,
   ends_at         TIMESTAMPTZ  NOT NULL,
-  weight          INTEGER      DEFAULT 10,        -- приоритет/шанс выпадения
   zone            VARCHAR(100) DEFAULT '',
   allowed_org_ids UUID[]       DEFAULT '{}',      -- какие организации могут показывать
   status          VARCHAR(20)  DEFAULT 'active'   -- active | scheduled | expired | paused
@@ -89,6 +88,9 @@ CREATE TABLE IF NOT EXISTS offers (
 ALTER TABLE offers
   ADD COLUMN IF NOT EXISTS time_from  TIME,
   ADD COLUMN IF NOT EXISTS time_to    TIME;
+
+-- Миграция: поле "вес" убрано из бизнес-логики (лотерея беспроигрышная, равномерный выбор)
+ALTER TABLE offers DROP COLUMN IF EXISTS weight;
 
 -- Связь точка ↔ акция с лимитом
 CREATE TABLE IF NOT EXISTS point_offers (

@@ -120,7 +120,7 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     const currentDate = now.toISOString()
 
     const pointOffers = await pool.query(
-      `SELECT po.*, o.title, o.description, o.weight, o.organization_id as offer_org_id,
+      `SELECT po.*, o.title, o.description, o.organization_id as offer_org_id,
               o.starts_at, o.ends_at, o.time_from, o.time_to, o.emoji, o.bg_gradient,
               org.category as org_category, org.name as org_name
        FROM point_offers po
@@ -166,21 +166,8 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       return res.json({ won: false, message: 'Нет доступных акций для розыгрыша' })
     }
 
-    // ── Розыгрыш (взвешенная случайная выборка) ──
-    const totalWeight = available.reduce((sum: number, po: any) => sum + (po.weight || 10), 0)
-    let random = Math.random() * totalWeight
-    let winner = available[0]
-
-    for (const po of available) {
-      random -= (po.weight || 10)
-      if (random <= 0) {
-        winner = po
-        break
-      }
-    }
-
-    // Определяем: выиграл или нет (шанс ~70%)
-    const isWinner = Math.random() < 0.7
+    // ── Розыгрыш (равномерный случайный выбор, лотерея беспроигрышная) ──
+    const winner = available[Math.floor(Math.random() * available.length)]
 
     // ── Ищем или создаём участника ──
     let participant = await pool.query('SELECT id FROM participants WHERE phone = $1', [phone])
@@ -200,19 +187,6 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     }
 
     const participantId = participant.rows[0].id
-
-    if (!isWinner) {
-      // Создаём spin_participation
-      await pool.query(
-        'INSERT INTO spin_participations (phone, point_id) VALUES ($1, $2)',
-        [phone, pointId]
-      )
-
-      return res.json({
-        won: false,
-        message: 'К сожалению, вы не выиграли в этот раз. Попробуйте на другой точке!',
-      })
-    }
 
     // ── Генерация купона ──
     // Префикс кода = аббревиатура точки (идентификация купона по точке)

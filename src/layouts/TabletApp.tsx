@@ -1,7 +1,8 @@
 import { type FC, useEffect } from 'react'
 import { Route, Routes, Link, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
-import { IconLogo, IconRefresh, IconShield } from '@/components/ui/icons'
+import { IconLogo, IconRefresh, IconShield, IconLogout } from '@/components/ui/icons'
+import { authApi } from '@/lib/api'
 import { TabletLogin } from '@/pages/tablet/TabletLogin'
 import { TabletWelcome } from '@/pages/tablet/TabletWelcome'
 import { TabletRegister } from '@/pages/tablet/TabletRegister'
@@ -31,6 +32,15 @@ export const TabletApp: FC = () => {
       navigate('/tablet/login', { replace: true })
     }
   }, [seg, navigate])
+
+  // Выход: сброс сессии сервера + локальных данных планшета
+  const handleLogout = async () => {
+    try { await authApi.logout() } catch { /* сессию сбросим локально в любом случае */ }
+    Object.keys(sessionStorage)
+      .filter(k => k.startsWith('loko_'))
+      .forEach(k => sessionStorage.removeItem(k))
+    navigate('/tablet/login', { replace: true })
+  }
 
   // На странице логина — минимальный layout
   if (isLogin) {
@@ -79,6 +89,13 @@ export const TabletApp: FC = () => {
           <Link to="/tablet" className="rounded-lg p-2 text-loko-text-muted hover:bg-loko-bg-elevated/40 hover:text-loko-text-primary">
             <IconRefresh size={18} />
           </Link>
+          <button
+            onClick={handleLogout}
+            title="Выйти и сменить планшет"
+            className="rounded-lg p-2 text-loko-text-muted hover:bg-loko-pink/10 hover:text-loko-pink"
+          >
+            <IconLogout size={18} />
+          </button>
         </div>
       </header>
 

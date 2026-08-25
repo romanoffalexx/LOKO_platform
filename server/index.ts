@@ -60,7 +60,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 7 * 24 * 3600 * 1000,  // 7 дней = 168 часов (>> 20 часов рабочего дня)
+    maxAge: (Number(process.env.SESSION_MAX_AGE_HOURS) || 12) * 3600 * 1000,  // время жизни сессии (по умолчанию 12 часов)
     httpOnly: true,
     secure: process.env.FRONTEND_URL?.startsWith('https'),  // secure только при HTTPS
     sameSite: 'lax',

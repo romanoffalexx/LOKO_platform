@@ -178,8 +178,6 @@ export const TabletSpin: FC = () => {
   const [offers, setOffers] = useState<OfferItem[]>([])
   const [spinning, setSpinning] = useState(false)
   const [done, setDone] = useState(false)
-  const [lost, setLost] = useState(false)
-  const [lostMessage, setLostMessage] = useState('')
   const [apiBusy, setApiBusy] = useState(false)
   const [error, setError] = useState('')
   const winnerRef = useRef(0)
@@ -207,32 +205,33 @@ export const TabletSpin: FC = () => {
         return
       }
 
-      // Серверный розыгрыш: создаёт участника, купон и лид в БД
+      // Серверный розыгрыш: создаёт участника, купон и лид в БД (лотерея беспроигрышная)
       const result = await tabletAuthApi.spin(reg.name, reg.phone)
       spinResultRef.current = result
 
-      if (result.won && result.offer) {
-        // Синхронизируем барабан с серверным победителем
-        let idx = offers.findIndex(o => o.id === result.offer.offer_id)
-        if (idx === -1) idx = offers.findIndex(o => o.title === result.offer.title)
-        if (idx === -1) {
-          // Выигрышной акции нет в ленте — добавляем её
-          const extra: OfferItem = {
-            id: result.offer.offer_id,
-            title: result.offer.title,
-            emoji: result.offer.emoji || '🎁',
-            organization_name: result.offer.org_name || '',
-            bg_gradient: result.offer.bg_gradient || '',
-          }
-          idx = offers.length
-          setOffers(prev => [...prev, extra])
-        }
-        winnerRef.current = idx
-      } else {
-        winnerRef.current = Math.floor(Math.random() * offers.length)
+      if (!result.won || !result.offer) {
+        // Техническая ситуация: на точке нет доступных акций
+        setError(result.message || 'Нет доступных акций. Обратитесь к сотруднику.')
+        return
       }
 
-      setLost(false)
+      // Синхронизируем барабан с серверным победителем
+      let idx = offers.findIndex(o => o.id === result.offer.offer_id)
+      if (idx === -1) idx = offers.findIndex(o => o.title === result.offer.title)
+      if (idx === -1) {
+        // Выигрышной акции нет в ленте — добавляем её
+        const extra: OfferItem = {
+          id: result.offer.offer_id,
+          title: result.offer.title,
+          emoji: result.offer.emoji || '🎁',
+          organization_name: result.offer.org_name || '',
+          bg_gradient: result.offer.bg_gradient || '',
+        }
+        idx = offers.length
+        setOffers(prev => [...prev, extra])
+      }
+      winnerRef.current = idx
+
       setDone(false)
       setSpinning(true)
     } catch (err: any) {
@@ -245,13 +244,6 @@ export const TabletSpin: FC = () => {
   const onDone = useCallback(() => {
     setSpinning(false)
     const result = spinResultRef.current
-
-    // Сервер сказал «не выиграл» — показываем экран проигрыша
-    if (result && result.won === false) {
-      setLost(true)
-      setLostMessage(result.message || 'К сожалению, вы не выиграли в этот раз. Попробуйте на другой точке!')
-      return
-    }
 
     setDone(true)
     // Сохраняем выигрыш + данные купона с сервера для страницы купона
@@ -305,9 +297,7 @@ export const TabletSpin: FC = () => {
               ? 'Определяем приз…'
               : done
                 ? 'Готово! Покажите купон на кассе'
-                : lost
-                  ? ''
-                  : 'Коснитесь кнопки, чтобы запустить'}
+                : 'Коснитесь кнопки, чтобы запустить'}
         </p>
       </div>
 
@@ -326,7 +316,7 @@ export const TabletSpin: FC = () => {
 
         {/* CTA-оверлей */}
         <AnimatePresence>
-          {!spinning && !done && !lost && (
+          {!spinning && !done && (
             <motion.button
               key="cta"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -359,29 +349,6 @@ export const TabletSpin: FC = () => {
           {error}
         </div>
       )}
-
-      {/* Экран проигрыша */}
-      <AnimatePresence>
-        {lost && (
-          <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', damping: 12, stiffness: 250, delay: 0.2 }}
-            className="mt-5"
-          >
-            <div className="card-elevated relative overflow-hidden border-loko-bg-border bg-loko-bg-elevated p-6 text-center">
-              <div className="relative mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-loko-bg-surface text-3xl">
-                😔
-              </div>
-              <div className="relative text-lg font-bold text-loko-text-primary">В этот раз не повезло</div>
-              <div className="relative mt-2 text-sm text-loko-text-secondary">{lostMessage}</div>
-              <button onClick={() => nav('/tablet')} className="btn-ghost mt-4 w-full">
-                На главную
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Вспышка экрана при выигрыше */}
       <AnimatePresence>
