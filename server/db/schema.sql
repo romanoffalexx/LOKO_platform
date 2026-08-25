@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS points (
 );
 CREATE INDEX IF NOT EXISTS idx_points_org ON points(organization_id);
 
+-- Миграция: зона точки (справочник zones)
+ALTER TABLE points ADD COLUMN IF NOT EXISTS zone VARCHAR(100) DEFAULT '';
+
 -- Акции (предложения от организаций)
 CREATE TABLE IF NOT EXISTS offers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

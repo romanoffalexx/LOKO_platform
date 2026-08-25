@@ -115,24 +115,21 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       return res.status(400).json({ error: 'Вы уже участвовали в розыгрыше на этой точке' })
     }
 
-    // ── Проверка 2: Активные акции на точке ──
+    // ── Проверка 2: Активные акции организации ──
+    // Акции привязаны к организации, точки наследуют их автоматически
     const now = new Date()
     const currentTime = now.toTimeString().slice(0, 8)
     const currentDate = now.toISOString()
 
-    const pointOffers = await pool.query(
-      `SELECT po.*, o.title, o.description, o.organization_id as offer_org_id,
-              o.starts_at, o.ends_at, o.time_from, o.time_to, o.emoji, o.bg_gradient,
-              org.category as org_category, org.name as org_name
-       FROM point_offers po
-       JOIN offers o ON o.id = po.offer_id
+    const { rows: ownRows } = await pool.query(
+      `SELECT o.*, org.name as org_name
+       FROM offers o
        JOIN organizations org ON org.id = o.organization_id
-       WHERE po.point_id = $1
-         AND po.is_active = true
+       WHERE o.organization_id = $1
          AND o.status = 'active'
          AND o.starts_at <= $2::timestamptz
          AND o.ends_at >= $2::timestamptz`,
-      [pointId, currentDate]
+      [orgId, currentDate]
     )
 
     // Фильтрация по времени суток
@@ -143,29 +140,13 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       return true
     }
 
-    let available: any[] = pointOffers.rows.filter(inTimeWindow)
-
-    // ── Проверка 3: Защита от конкурентов ──
-    const myOrg = await pool.query(
-      'SELECT category FROM organizations WHERE id = $1',
-      [orgId]
-    )
-    const myCategory = myOrg.rows[0]?.category || ''
-
-    if (myCategory) {
-      available = available.filter((po: any) => po.org_category !== myCategory || po.offer_org_id === orgId)
-    }
-
-    // ── Проверка 4: Лимиты ──
-    available = available.filter((po: any) => {
-      return po.max_count === null || po.issued_count < po.max_count
-    })
-
-    // Запоминаем id строки point_offers — он нужен для счётчиков
-    available = available.map((po: any) => ({ ...po, po_id: po.id }))
+    const available: any[] = ownRows.filter(inTimeWindow).map((o: any) => ({
+      ...o,
+      offer_id: o.id,
+      offer_org_id: o.organization_id,
+    }))
 
     // ── Акции других организаций, разрешённые галочками «Можно показывать» ──
-    // Явное разрешение — выше защиты от конкурентов, лимиты point_offers к ним не применяются
     const { rows: allowedRows } = await pool.query(
       `SELECT o.*, org.name as org_name
        FROM offers o
@@ -181,7 +162,6 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       ...o,
       offer_id: o.id,
       offer_org_id: o.organization_id,
-      po_id: null,
     }))
 
     const candidates = [...available, ...allowedAvailable]
@@ -239,19 +219,6 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     )
 
     // ── Обновление счётчиков ──
-    if (winner.po_id) {
-      await pool.query(
-        `UPDATE point_offers SET issued_count = issued_count + 1 WHERE id = $1`,
-        [winner.po_id]
-      )
-
-      // Автодеактивация при достижении лимита
-      await pool.query(
-        `UPDATE point_offers SET is_active = false
-         WHERE id = $1 AND max_count IS NOT NULL AND issued_count >= max_count`,
-        [winner.po_id]
-      )
-    }
     // Общий счётчик выданных купонов по акции
     await pool.query(
       `UPDATE offers SET total_issued = total_issued + 1 WHERE id = $1`,
