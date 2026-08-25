@@ -72,7 +72,6 @@ export interface Participant {
 export interface Tablet {
   id: string
   name: string
-  serial: string
   organizationId: string
   organizationName: string
   point: string

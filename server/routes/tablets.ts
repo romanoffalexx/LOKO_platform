@@ -10,7 +10,7 @@ tabletsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { organization_id, status } = req.query
     let sql = `
-      SELECT t.*, org.name AS organization_name, pt.name AS point_name
+      SELECT t.*, org.name AS organization_name, pt.name AS point_name, pt.zone AS point_zone
       FROM tablets t
       LEFT JOIN organizations org ON org.id = t.organization_id
       LEFT JOIN points pt ON pt.id = t.point_id
@@ -35,7 +35,7 @@ tabletsRouter.get('/', async (req: Request, res: Response) => {
 tabletsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(
-      `SELECT t.*, org.name AS organization_name, pt.name AS point_name
+      `SELECT t.*, org.name AS organization_name, pt.name AS point_name, pt.zone AS point_zone
        FROM tablets t
        LEFT JOIN organizations org ON org.id = t.organization_id
        LEFT JOIN points pt ON pt.id = t.point_id
@@ -52,7 +52,7 @@ tabletsRouter.get('/:id', async (req: Request, res: Response) => {
 /** POST /api/tablets — создать планшет */
 tabletsRouter.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, serial, organization_id, point, point_id, zone } = req.body
+    const { name, organization_id, point, point_id, zone } = req.body
 
     // Правило: 1 точка = 1 планшет. Планшет без точки недопустим
     if (!point_id) {
@@ -69,9 +69,9 @@ tabletsRouter.post('/', async (req: Request, res: Response) => {
     const password_hash = await bcrypt.hash(rawPassword, 12)
 
     const { rows } = await pool.query(
-      `INSERT INTO tablets (name, serial, organization_id, point, point_id, zone, login, password_hash, password_plain)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [name, serial, organization_id ?? null, point ?? '', point_id || null, zone ?? '', login, password_hash, rawPassword],
+      `INSERT INTO tablets (name, organization_id, point, point_id, zone, login, password_hash, password_plain)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, organization_id ?? null, point ?? '', point_id || null, zone ?? '', login, password_hash, rawPassword],
     )
 
     const tablet = rows[0]
@@ -160,7 +160,8 @@ tabletsRouter.patch('/:id', async (req: Request, res: Response) => {
       )
     }
 
-    const allowed = ['name','serial','organization_id','point','point_id','zone','status','last_seen','app_version']
+    // Зона планшета не редактируется — наследуется от точки
+    const allowed = ['name','organization_id','point','point_id','status','last_seen','app_version']
     const fields = Object.entries(rest).filter(([k]) => allowed.includes(k))
     if (fields.length === 0 && !new_password) return res.status(400).json({ error: 'Нет полей' })
 

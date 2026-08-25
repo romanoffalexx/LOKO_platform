@@ -269,6 +269,21 @@ export const pointsApi = {
     request<any>(`/points/${pointId}/tablet`, { method: 'POST', body: JSON.stringify(data || {}) }),
 }
 
+// ─── Zones (справочник зон точек) ─────────────────────────────
+export const zonesApi = {
+  list: () =>
+    request<any[]>('/zones'),
+
+  create: (data: { name: string }) =>
+    request<any>('/zones', { method: 'POST', body: JSON.stringify(data) }),
+
+  update: (id: string, data: { name: string }) =>
+    request<any>(`/zones/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  delete: (id: string, force = false) =>
+    request<{ ok: boolean }>(`/zones/${id}${force ? '?force=1' : ''}`, { method: 'DELETE' }),
+}
+
 // ─── Point Offers ──────────────────────────────────────────
 export const pointOffersApi = {
   list: () =>

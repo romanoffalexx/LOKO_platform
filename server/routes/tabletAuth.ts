@@ -13,7 +13,7 @@ tabletAuthRouter.post('/login', async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT t.*, p.id as point_id, p.organization_id, p.is_active as point_active,
+      `SELECT t.*, p.id as point_id, p.name as point_title, p.organization_id, p.is_active as point_active,
               o.status as org_status
        FROM tablets t
        JOIN points p ON p.id = t.point_id
@@ -56,9 +56,10 @@ tabletAuthRouter.post('/login', async (req, res) => {
 
     res.json({
       tablet_id: tablet.id,
+      tablet_name: tablet.name,
       point_id: tablet.point_id,
       organization_id: tablet.organization_id,
-      point_name: tablet.point,
+      point_name: tablet.point_title || tablet.point,
     })
   } catch (err: any) {
     console.error('[TabletAuth] Login error:', err.message)
@@ -134,17 +135,15 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       [pointId, currentDate]
     )
 
-    if (pointOffers.rows.length === 0) {
-      return res.json({ won: false, message: 'Нет активных акций на данной точке' })
-    }
-
     // Фильтрация по времени суток
-    let available = pointOffers.rows.filter((po: any) => {
-      if (po.time_from && po.time_to) {
-        return currentTime >= po.time_from && currentTime <= po.time_to
+    const inTimeWindow = (o: any) => {
+      if (o.time_from && o.time_to) {
+        return currentTime >= o.time_from && currentTime <= o.time_to
       }
       return true
-    })
+    }
+
+    let available: any[] = pointOffers.rows.filter(inTimeWindow)
 
     // ── Проверка 3: Защита от конкурентов ──
     const myOrg = await pool.query(
@@ -162,12 +161,36 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       return po.max_count === null || po.issued_count < po.max_count
     })
 
-    if (available.length === 0) {
+    // Запоминаем id строки point_offers — он нужен для счётчиков
+    available = available.map((po: any) => ({ ...po, po_id: po.id }))
+
+    // ── Акции других организаций, разрешённые галочками «Можно показывать» ──
+    // Явное разрешение — выше защиты от конкурентов, лимиты point_offers к ним не применяются
+    const { rows: allowedRows } = await pool.query(
+      `SELECT o.*, org.name as org_name
+       FROM offers o
+       JOIN organizations org ON org.id = o.organization_id
+       WHERE $1 = ANY(o.allowed_org_ids)
+         AND o.organization_id != $1
+         AND o.status = 'active'
+         AND o.starts_at <= $2::timestamptz
+         AND o.ends_at >= $2::timestamptz`,
+      [orgId, currentDate]
+    )
+    const allowedAvailable = allowedRows.filter(inTimeWindow).map((o: any) => ({
+      ...o,
+      offer_id: o.id,
+      offer_org_id: o.organization_id,
+      po_id: null,
+    }))
+
+    const candidates = [...available, ...allowedAvailable]
+    if (candidates.length === 0) {
       return res.json({ won: false, message: 'Нет доступных акций для розыгрыша' })
     }
 
     // ── Розыгрыш (равномерный случайный выбор, лотерея беспроигрышная) ──
-    const winner = available[Math.floor(Math.random() * available.length)]
+    const winner = candidates[Math.floor(Math.random() * candidates.length)]
 
     // ── Ищем или создаём участника ──
     let participant = await pool.query('SELECT id FROM participants WHERE phone = $1', [phone])
@@ -216,16 +239,23 @@ tabletAuthRouter.post('/spin', async (req, res) => {
     )
 
     // ── Обновление счётчиков ──
-    await pool.query(
-      `UPDATE point_offers SET issued_count = issued_count + 1 WHERE id = $1`,
-      [winner.id]
-    )
+    if (winner.po_id) {
+      await pool.query(
+        `UPDATE point_offers SET issued_count = issued_count + 1 WHERE id = $1`,
+        [winner.po_id]
+      )
 
-    // Автодеактивация при достижении лимита
+      // Автодеактивация при достижении лимита
+      await pool.query(
+        `UPDATE point_offers SET is_active = false
+         WHERE id = $1 AND max_count IS NOT NULL AND issued_count >= max_count`,
+        [winner.po_id]
+      )
+    }
+    // Общий счётчик выданных купонов по акции
     await pool.query(
-      `UPDATE point_offers SET is_active = false
-       WHERE id = $1 AND max_count IS NOT NULL AND issued_count >= max_count`,
-      [winner.id]
+      `UPDATE offers SET total_issued = total_issued + 1 WHERE id = $1`,
+      [winner.offer_id]
     )
 
     // Обновление total_wins

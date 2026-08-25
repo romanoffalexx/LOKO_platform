@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { tabletsApi } from '@/lib/api'
+import { tabletsApi, pointsApi } from '@/lib/api'
 import { copyToClipboard } from '@/lib/clipboard'
 import { IconSearch, IconTablet, IconRefresh, IconClose, IconEdit } from '@/components/ui/icons'
 
@@ -12,12 +12,13 @@ function genPassword(): string {
 
 export function AdminTablets() {
   const [tablets, setTablets] = useState<any[]>([])
+  const [points, setPoints] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', serial: '', point: '', zone: '', login: '', password: '' })
+  const [editForm, setEditForm] = useState({ name: '', point_id: '', login: '', password: '' })
   const [saving, setSaving] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
   const [origPassword, setOrigPassword] = useState('')
@@ -27,6 +28,7 @@ export function AdminTablets() {
       setLoading(true)
       const data = await tabletsApi.list()
       setTablets(data)
+      setPoints(await pointsApi.list())
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -45,16 +47,16 @@ export function AdminTablets() {
   const openEdit = (t: any) => {
     setEditingId(t.id)
     const pwd = t.password_plain || ''
-    setEditForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', zone: t.zone || '', login: t.login || '', password: pwd })
+    setEditForm({ name: t.name || '', point_id: t.point_id || '', login: t.login || '', password: pwd })
     setOrigPassword(pwd)
     setShowPwd(false)
   }
 
   const handleSave = async () => {
-    if (!editingId || !editForm.name) return
+    if (!editingId || !editForm.name || !editForm.point_id) return
     setSaving(true)
     try {
-      const payload: Record<string, any> = { name: editForm.name, serial: editForm.serial, point: editForm.point, zone: editForm.zone }
+      const payload: Record<string, any> = { name: editForm.name, point_id: editForm.point_id }
       if (editForm.password && editForm.password !== origPassword) payload.new_password = editForm.password
       await tabletsApi.update(editingId, payload)
       setEditingId(null)
@@ -71,8 +73,8 @@ export function AdminTablets() {
     if (search) {
       const q = search.toLowerCase()
       if (!t.name?.toLowerCase().includes(q) &&
-          !t.serial?.toLowerCase().includes(q) &&
           !t.organization_name?.toLowerCase().includes(q) &&
+          !t.point_name?.toLowerCase().includes(q) &&
           !t.point?.toLowerCase().includes(q) &&
           !t.login?.toLowerCase().includes(q)) return false
     }
@@ -95,7 +97,7 @@ export function AdminTablets() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Имя, SN, организация…"
+              placeholder="Имя, организация, точка…"
               className="w-full bg-transparent text-loko-text-primary placeholder:text-loko-text-muted focus:outline-none"
             />
             {search && (
@@ -136,7 +138,7 @@ export function AdminTablets() {
         <div className="card overflow-hidden">
           <div className="hidden md:grid grid-cols-12 gap-3 border-b border-loko-bg-border px-4 py-3 text-[11px] uppercase tracking-wider text-loko-text-muted">
             <div className="col-span-2">Имя</div>
-            <div className="col-span-2">SN / Логин</div>
+            <div className="col-span-2">Логин</div>
             <div className="col-span-3">Организация</div>
             <div className="col-span-2">Точка</div>
             <div className="col-span-1">Версия</div>
@@ -153,16 +155,22 @@ export function AdminTablets() {
                     <input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
                   </div>
                   <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Серийный номер</label>
-                    <input value={editForm.serial} onChange={e => setEditForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" />
+                    <label className="block text-xs text-loko-text-muted mb-1">Точка *</label>
+                    <select value={editForm.point_id} onChange={e => setEditForm(p => ({ ...p, point_id: e.target.value }))} className="input w-full">
+                      <option value="">— выберите точку —</option>
+                      {points.map(p => {
+                        const occupiedBy = tablets.find(x => x.point_id === p.id && x.id !== t.id)
+                        return (
+                          <option key={p.id} value={p.id} disabled={!!occupiedBy}>
+                            {p.name}{p.organization_name ? ` (${p.organization_name})` : ''}{occupiedBy ? ` — планшет «${occupiedBy.name}»` : ''}
+                          </option>
+                        )
+                      })}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
-                    <input value={editForm.point} onChange={e => setEditForm(p => ({ ...p, point: e.target.value }))} className="input w-full" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
-                    <input value={editForm.zone} onChange={e => setEditForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" />
+                    <label className="block text-xs text-loko-text-muted mb-1">Зона (от точки)</label>
+                    <input value={points.find(p => p.id === editForm.point_id)?.zone || '—'} readOnly className="input w-full opacity-60" title="Зона наследуется от точки" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -192,9 +200,9 @@ export function AdminTablets() {
                 <div className="md:col-span-2 inline-flex items-center gap-2 font-semibold text-loko-text-primary">
                   <IconTablet size={14} className="text-loko-pink" />{t.name}
                 </div>
-                <div className="md:col-span-2 font-mono text-xs text-loko-text-muted">{t.serial}{t.login && <div className="text-loko-pink">{t.login}</div>}{t.password_plain && <div className="text-loko-text-muted">••••••</div>}</div>
+                <div className="md:col-span-2 font-mono text-xs text-loko-text-muted">{t.login && <div className="text-loko-pink">{t.login}</div>}{t.password_plain && <div className="text-loko-text-muted">••••••</div>}</div>
                 <div className="md:col-span-3 truncate text-loko-text-secondary">{t.organization_name}</div>
-                <div className="md:col-span-2 text-xs text-loko-text-muted">{t.point_name || t.point}</div>
+                <div className="md:col-span-2 text-xs text-loko-text-muted">{t.point_name || t.point}{t.point_zone ? ` · ${t.point_zone}` : ''}</div>
                 <div className="flex items-center gap-3 md:contents">
                   <div className="md:col-span-1 text-xs text-loko-text-muted">v{t.app_version}</div>
                   <div className="md:col-span-1 text-xs text-loko-text-muted">{t.last_seen ? new Date(t.last_seen).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>

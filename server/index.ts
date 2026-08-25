@@ -23,6 +23,7 @@ import { pointOffersRouter } from './routes/pointOffers.js'
 import { ticketsRouter } from './routes/tickets.js'
 import { tabletAuthRouter } from './routes/tabletAuth.js'
 import { adminSettingsRouter } from './routes/adminSettings.js'
+import { zonesRouter } from './routes/zones.js'
 import { requireAuth, requireAdmin } from './middleware/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -98,6 +99,7 @@ app.use('/api/points',          pointsRouter)
 app.use('/api/point-offers',    pointOffersRouter)
 app.use('/api/tickets',         ticketsRouter)
 app.use('/api/tablet',          tabletAuthRouter)
+app.use('/api/zones',           requireAuth, zonesRouter)
 app.use('/api/admin',           adminSettingsRouter)
 
 // ─── Периодические задачи ──────────────────────────────────

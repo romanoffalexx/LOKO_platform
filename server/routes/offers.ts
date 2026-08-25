@@ -3,7 +3,8 @@ import { pool } from '../db/pool.js'
 
 export const offersRouter = Router()
 
-/** GET /api/offers — список акций (с фильтром по статусу) */
+/** GET /api/offers — список акций (с фильтром по статусу).
+ * Для сессии планшета — только акции своей организации + разрешённые галочками «Можно показывать». */
 offersRouter.get('/', async (req: Request, res: Response) => {
   try {
     const status = req.query.status as string | undefined
@@ -13,10 +14,16 @@ offersRouter.get('/', async (req: Request, res: Response) => {
       JOIN organizations org ON org.id = o.organization_id
     `
     const params: any[] = []
+    const conditions: string[] = []
     if (status) {
-      sql += ` WHERE o.status = $1`
+      conditions.push(`o.status = $${params.length + 1}`)
       params.push(status)
     }
+    if (req.session.role === 'tablet' && req.session.organizationId) {
+      conditions.push(`(o.organization_id = $${params.length + 1} OR $${params.length + 1} = ANY(o.allowed_org_ids))`)
+      params.push(req.session.organizationId)
+    }
+    if (conditions.length > 0) sql += ` WHERE ${conditions.join(' AND ')}`
     sql += ` ORDER BY o.starts_at DESC`
     const { rows } = await pool.query(sql, params)
     res.json(rows)

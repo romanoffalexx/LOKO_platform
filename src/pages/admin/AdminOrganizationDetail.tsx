@@ -7,6 +7,7 @@ import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
   IconCheck, IconPlus, IconClose, IconEdit,
 } from '@/components/ui/icons'
+import { ZoneSelect } from '@/components/ui/ZoneSelect'
 
 function genPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
@@ -32,7 +33,7 @@ export function AdminOrganizationDetail() {
   const [editingMonitorId, setEditingMonitorId] = useState<string | null>(null)
   const [editingTabletId, setEditingTabletId] = useState<string | null>(null)
   const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
-  const [tabletForm, setTabletForm] = useState({ name: '', serial: '', point: '', point_id: '', zone: '', login: '', password: '' })
+  const [tabletForm, setTabletForm] = useState({ name: '', point: '', point_id: '', login: '', password: '' })
   const [showPwdTablet, setShowPwdTablet] = useState(false)
   const [origTabletPwd, setOrigTabletPwd] = useState('')
   const [createdTabletInfo, setCreatedTabletInfo] = useState<{ name: string; login: string; password: string; emailSent: boolean; partnerEmail: string | null } | null>(null)
@@ -46,10 +47,10 @@ export function AdminOrganizationDetail() {
   const [showEditOrg, setShowEditOrg] = useState(false)
   const [savingOrg, setSavingOrg] = useState(false)
   const [editForm, setEditForm] = useState({
-    name: '', address: '', phone: '', email: '', zone: '', category: '', description: '', working_hours: '', logo: '', logo_color: '#A855F7',
+    name: '', address: '', phone: '', email: '', category: '', description: '', working_hours: '', logo: '', logo_color: '#A855F7',
   })
   const [pointForm, setPointForm] = useState({
-    name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false,
+    name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false, zone: '',
   })
   const [offerForm, setOfferForm] = useState({
     title: '', description: '', starts_at: '', ends_at: '', zone: 'all',
@@ -83,7 +84,7 @@ export function AdminOrganizationDetail() {
   const openEditOrg = () => {
     setEditForm({
       name: org.name || '', address: org.address || '', phone: org.phone || '',
-      email: org.email || '', zone: org.zone || '', category: org.category || '',
+      email: org.email || '', category: org.category || '',
       description: org.description || '', working_hours: org.working_hours || '',
       logo: org.logo || '', logo_color: org.logo_color || '#A855F7',
     })
@@ -113,7 +114,7 @@ export function AdminOrganizationDetail() {
     try {
       const result = await pointsApi.create({ ...pointForm, organization_id: id })
       setShowPointForm(false)
-      setPointForm({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false })
+      setPointForm({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false, zone: '' })
 
       // Перезагружаем данные организации
       const orgData = await organizationsApi.get(id)
@@ -192,7 +193,7 @@ export function AdminOrganizationDetail() {
   const openEditTablet = (t: any) => {
     setEditingTabletId(t.id)
     const pwd = t.password_plain || ''
-    setTabletForm({ name: t.name || '', serial: t.serial || '', point: t.point || '', point_id: t.point_id || '', zone: t.zone || '', login: t.login || '', password: pwd })
+    setTabletForm({ name: t.name || '', point: t.point || '', point_id: t.point_id || '', login: t.login || '', password: pwd })
     setOrigTabletPwd(pwd)
     setShowPwdTablet(false)
   }
@@ -201,7 +202,7 @@ export function AdminOrganizationDetail() {
     if (!editingTabletId || !tabletForm.name) return
     setSavingTablet(true)
     try {
-      const payload: Record<string, any> = { name: tabletForm.name, serial: tabletForm.serial, point: tabletForm.point, point_id: tabletForm.point_id, zone: tabletForm.zone }
+      const payload: Record<string, any> = { name: tabletForm.name, point: tabletForm.point, point_id: tabletForm.point_id }
       if (tabletForm.password && tabletForm.password !== origTabletPwd) payload.new_password = tabletForm.password
       await tabletsApi.update(editingTabletId, payload)
       setEditingTabletId(null)
@@ -280,6 +281,21 @@ export function AdminOrganizationDetail() {
     setShowOfferForm(false)
   }
 
+  // «Можно показывать»: разрешаем/запрещаем показ чужой акции на точках этой организации
+  const toggleAllowedOffer = async (offer: any, checked: boolean) => {
+    if (!id) return
+    const current: string[] = offer.allowed_org_ids ?? []
+    const next = checked
+      ? [...current, id]
+      : current.filter((x: string) => x !== id)
+    try {
+      await offersApi.update(offer.id, { allowed_org_ids: next })
+      setAllOffers(prev => prev.map(o => o.id === offer.id ? { ...o, allowed_org_ids: next } : o))
+    } catch (err) {
+      console.error('[Offer allowed_org_ids]', err)
+    }
+  }
+
   const handleSaveEditOffer = async () => {
     if (!editingOfferId || !offerForm.title) return
     setSavingOffer(true)
@@ -350,7 +366,6 @@ export function AdminOrganizationDetail() {
                 <span className="inline-flex items-center gap-1.5"><IconPin size={14} />{org.address}</span>
                 <span className="inline-flex items-center gap-1.5"><IconPhone size={14} />{org.phone}</span>
                 <span className="inline-flex items-center gap-1.5"><IconMail size={14} />{org.email}</span>
-                <span>· Зона: {org.zone}</span>
               </div>
             </div>
           </div>
@@ -424,10 +439,6 @@ export function AdminOrganizationDetail() {
               <input type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} className="input w-full" />
             </div>
             <div>
-              <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
-              <input value={editForm.zone} onChange={e => setEditForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="center, north…" />
-            </div>
-            <div>
               <label className="block text-xs text-loko-text-muted mb-1">Категория</label>
               <input value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} className="input w-full" placeholder="pizzeria, coffee…" />
             </div>
@@ -480,6 +491,10 @@ export function AdminOrganizationDetail() {
             <div>
               <label className="block text-xs text-loko-text-muted mb-1">Часы работы</label>
               <input className="input w-full" value={pointForm.working_hours} onChange={e => setPointForm(p => ({ ...p, working_hours: e.target.value }))} />
+            </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+              <ZoneSelect value={pointForm.zone} onChange={v => setPointForm(p => ({ ...p, zone: v }))} />
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -657,8 +672,8 @@ export function AdminOrganizationDetail() {
                   const checked = (o.allowed_org_ids ?? []).includes(id)
                   return (
                     <label key={o.id} className="card-elevated flex cursor-pointer items-center gap-3 p-3 hover:border-loko-pink/40">
-                      <input type="checkbox" defaultChecked={checked} className="peer sr-only" />
-                      <span className="flex h-5 w-5 items-center justify-center rounded-md border border-loko-bg-border bg-loko-bg-base/60 peer-checked:border-loko-pink peer-checked:bg-gradient-brand">
+                      <input type="checkbox" checked={checked} onChange={e => toggleAllowedOffer(o, e.target.checked)} className="peer sr-only" />
+                      <span className="pointer-events-none flex h-5 w-5 items-center justify-center rounded-md border border-loko-bg-border bg-loko-bg-base/60 peer-checked:border-loko-pink peer-checked:bg-gradient-brand">
                         {checked && <IconCheck size={12} className="text-white" />}
                       </span>
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" style={{ background: o.bg_gradient }}>{o.emoji}</div>
@@ -770,10 +785,6 @@ export function AdminOrganizationDetail() {
                           <input value={tabletForm.name} onChange={e => setTabletForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
                         </div>
                         <div>
-                          <label className="block text-xs text-loko-text-muted mb-1">Серийный номер</label>
-                          <input value={tabletForm.serial} onChange={e => setTabletForm(p => ({ ...p, serial: e.target.value }))} className="input w-full" />
-                        </div>
-                        <div>
                           <label className="block text-xs text-loko-text-muted mb-1">Точка</label>
                           <select
                             value={tabletForm.point_id}
@@ -790,8 +801,8 @@ export function AdminOrganizationDetail() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
-                          <input value={tabletForm.zone} onChange={e => setTabletForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" />
+                          <label className="block text-xs text-loko-text-muted mb-1">Зона (от точки)</label>
+                          <input value={points.find(p => p.id === tabletForm.point_id)?.zone || '—'} readOnly className="input w-full opacity-60" title="Зона наследуется от точки" />
                         </div>
                       </div>
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -824,7 +835,7 @@ export function AdminOrganizationDetail() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold text-loko-text-primary">{t.name}</div>
                         <div className="text-xs text-loko-text-muted">
-                          {t.serial && `SN: ${t.serial} · `}{t.point || '—'} · {t.zone || '—'}
+                          {t.point_name || t.point || '—'} · {t.point_zone || t.zone || '—'}
                         </div>
                         {t.login && (
                           <div className="mt-0.5 font-mono text-[11px] text-loko-pink">

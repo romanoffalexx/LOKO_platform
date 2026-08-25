@@ -12,6 +12,7 @@ import { TabletCoupon } from '@/pages/tablet/TabletCoupon'
 
 const stepLabels: Record<string, string> = {
   '': 'Старт',
+  welcome: 'Старт',
   register: 'Регистрация',
   consent: 'Согласие',
   spin: 'Барабан',
@@ -32,6 +33,11 @@ export const TabletApp: FC = () => {
       navigate('/tablet/login', { replace: true })
     }
   }, [seg, navigate])
+
+  // Данные текущего планшета из сессии (сохраняются при логине)
+  let tabletInfo: { tablet_name?: string; point_name?: string } = {}
+  try { tabletInfo = JSON.parse(sessionStorage.getItem('loko_tablet') || '{}') } catch { /* пустая сессия */ }
+  const tabletLabel = [tabletInfo.tablet_name, tabletInfo.point_name].filter(Boolean).join(' · ') || 'Планшет'
 
   // Выход: сброс сессии сервера + локальных данных планшета
   const handleLogout = async () => {
@@ -84,7 +90,7 @@ export const TabletApp: FC = () => {
         <div className="flex items-center gap-2">
           <span className="badge badge-neutral gap-1.5 px-2 py-1 text-[10px]">
             <span className="h-1.5 w-1.5 rounded-full bg-loko-success animate-pulse" />
-            Планшет T-042 · Центр
+            {tabletLabel}
           </span>
           <Link to="/tablet" className="rounded-lg p-2 text-loko-text-muted hover:bg-loko-bg-elevated/40 hover:text-loko-text-primary">
             <IconRefresh size={18} />
@@ -123,6 +129,7 @@ export const TabletApp: FC = () => {
         <AnimatePresence mode="wait">
           <Routes location={loc} key={loc.pathname}>
             <Route index element={<TabletWelcome />} />
+            <Route path="welcome" element={<TabletWelcome />} />
             <Route path="login" element={<TabletLogin />} />
             <Route path="register" element={<TabletRegister />} />
             <Route path="consent" element={<TabletConsent />} />

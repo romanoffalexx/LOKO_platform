@@ -5,43 +5,28 @@ import { participantsApi } from '@/lib/api'
 import { IconArrowRight, IconPhone, IconCheck } from '@/components/ui/icons'
 
 function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '')
-  if (digits.length === 0) return ''
-  let n = digits
-  // 8 → 7; если ввели без кода страны (10 цифр) — добавляем 7
-  if (n[0] === '8') n = '7' + n.slice(1)
-  else if (n.length <= 10) n = '7' + n
-  return '+' + n.slice(0, 11)
-}
-
-function formatPhone(input: string): string {
-  const n = normalizePhone(input)
-  if (n.length < 2) return n
-  const d = n.slice(1)
-  const a = d.slice(0, 3)
-  const b = d.slice(3, 6)
-  const c = d.slice(6, 8)
-  const e = d.slice(8, 10)
-  let out = `+7`
-  if (a) out += ` (${a}`
-  if (a.length === 3) out += ')'
-  if (b) out += ` ${b}`
-  if (c) out += `-${c}`
-  if (e) out += `-${e}`
-  return out
+  let d = raw.replace(/\D/g, '')
+  if (d.length === 0) return ''
+  // Отделяем код страны (7/8), если его ввели вместе с номером
+  while (d.length > 10 && (d[0] === '7' || d[0] === '8')) d = d.slice(1)
+  return ('+7' + d).slice(0, 12)
 }
 
 export const TabletRegister: FC = () => {
   const nav = useNavigate()
-  const [phoneRaw, setPhoneRaw] = useState('')
+  const [phoneRaw, setPhoneRaw] = useState('+7 ')
   const [name, setName] = useState('')
   const [existing, setExisting] = useState<{ id: string; name: string } | null>(null)
   const [searching, setSearching] = useState(false)
 
   const onPhone = (v: string) => {
-    const f = formatPhone(v)
-    setPhoneRaw(f)
-    const norm = normalizePhone(v)
+    // Показываем ровно то, что ввели; если стёрли префикс — восстанавливаем +7
+    let val = v
+    if (!val.trim().startsWith('+7')) {
+      val = '+7 ' + val.replace(/\D/g, '')
+    }
+    setPhoneRaw(val)
+    const norm = normalizePhone(val)
     if (norm.length >= 12) {
       setSearching(true)
       participantsApi.list({ phone: norm.slice(-10), limit: 1 })

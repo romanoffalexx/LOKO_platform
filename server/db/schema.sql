@@ -123,7 +123,6 @@ CREATE TABLE IF NOT EXISTS participants (
 CREATE TABLE IF NOT EXISTS tablets (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            VARCHAR(50)  NOT NULL,           -- например «Т-042»
-  serial          VARCHAR(50)  NOT NULL UNIQUE,
   organization_id UUID         REFERENCES organizations(id) ON DELETE SET NULL,
   point           VARCHAR(100) DEFAULT '',         -- «Касса 1», «Холл 2 этаж»
   zone            VARCHAR(100) DEFAULT '',
@@ -140,6 +139,16 @@ ALTER TABLE tablets
   ADD COLUMN IF NOT EXISTS login         VARCHAR(100) UNIQUE,
   ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255),
   ADD COLUMN IF NOT EXISTS password_plain VARCHAR(255);
+
+-- Миграция: серийный номер планшета убран из логики (идентификация по login)
+ALTER TABLE tablets DROP COLUMN IF EXISTS serial;
+
+-- Справочник зон точек («Центр», «1 этаж» и т.п.) — создаются через «+» в форме точки
+CREATE TABLE IF NOT EXISTS zones (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       VARCHAR(100) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ  DEFAULT now()
+);
 
 -- Купоны
 CREATE TABLE IF NOT EXISTS coupons (

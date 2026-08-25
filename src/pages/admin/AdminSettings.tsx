@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { adminSettingsApi } from '@/lib/api'
+import { adminSettingsApi, zonesApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { IconShield, IconCheck } from '@/components/ui/icons'
+import { IconShield, IconCheck, IconPlus, IconEdit, IconClose, IconPin } from '@/components/ui/icons'
 
 export function AdminSettings() {
   const { user, refresh } = useAuth()
@@ -9,6 +9,55 @@ export function AdminSettings() {
   const [form, setForm] = useState({ name: '', email: '', telegram_chat_id: '', telegram_username: '' })
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // ── Справочник зон ──
+  const [zones, setZones] = useState<any[]>([])
+  const [newZone, setNewZone] = useState('')
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null)
+  const [zoneDraft, setZoneDraft] = useState('')
+  const [zoneBusy, setZoneBusy] = useState(false)
+
+  const loadZones = async () => {
+    try { setZones(await zonesApi.list()) } catch (err) { console.error('[Zones]', err) }
+  }
+
+  const handleAddZone = async () => {
+    const name = newZone.trim()
+    if (!name) return
+    setZoneBusy(true)
+    try {
+      await zonesApi.create({ name })
+      setNewZone('')
+      await loadZones()
+    } catch (err: any) { alert(err.message) }
+    finally { setZoneBusy(false) }
+  }
+
+  const handleRenameZone = async (id: string) => {
+    const name = zoneDraft.trim()
+    if (!name) return
+    setZoneBusy(true)
+    try {
+      await zonesApi.update(id, { name })
+      setEditingZoneId(null)
+      await loadZones()
+    } catch (err: any) { alert(err.message) }
+    finally { setZoneBusy(false) }
+  }
+
+  const handleDeleteZone = async (z: any) => {
+    const used = Number(z.points_count || 0)
+    const msg = used > 0
+      ? `Зона «${z.name}» используется ${used} точками. После удаления у этих точек зона будет очищена. Удалить?`
+      : `Удалить зону «${z.name}»?`
+    if (!confirm(msg)) return
+    setZoneBusy(true)
+    try {
+      await zonesApi.delete(z.id, used > 0)
+      await loadZones()
+    } catch (err: any) { alert(err.message) }
+    finally { setZoneBusy(false) }
+  }
 
   useEffect(() => {
     adminSettingsApi.get()
@@ -18,6 +67,7 @@ export function AdminSettings() {
       })
       .catch(err => console.error('[AdminSettings]', err))
       .finally(() => setLoading(false))
+    loadZones()
   }, [])
 
   const handleSave = async (e: React.FormEvent) => {
@@ -124,6 +174,67 @@ export function AdminSettings() {
             <div key={p.label} className="card-elevated p-3">
               <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">{p.label}</div>
               <div className="mt-1 text-sm text-loko-text-primary">{p.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Справочник зон точек */}
+      <div className="mt-4 card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-loko-text-primary">Зоны точек</h3>
+            <p className="mt-0.5 text-xs text-loko-text-muted">Справочник зон — используется в карточках точек. Зона планшета наследуется от его точки.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={newZone}
+              onChange={e => setNewZone(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddZone()}
+              placeholder="Новая зона…"
+              className="input w-48"
+            />
+            <button onClick={handleAddZone} disabled={zoneBusy || !newZone.trim()} className="btn-brand disabled:opacity-50">
+              <IconPlus size={16} />Добавить
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2">
+          {zones.length === 0 && (
+            <div className="rounded-xl border border-dashed border-loko-bg-border p-6 text-center text-sm text-loko-text-muted">
+              Зон пока нет — добавьте первую выше
+            </div>
+          )}
+          {zones.map(z => (
+            <div key={z.id} className="card-elevated flex items-center gap-3 p-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-loko-violet/10 text-loko-violet">
+                <IconPin size={16} />
+              </div>
+              {editingZoneId === z.id ? (
+                <>
+                  <input
+                    value={zoneDraft}
+                    onChange={e => setZoneDraft(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleRenameZone(z.id)}
+                    className="input flex-1"
+                    autoFocus
+                  />
+                  <button onClick={() => handleRenameZone(z.id)} disabled={zoneBusy || !zoneDraft.trim()} className="btn-brand px-3 disabled:opacity-50" title="Сохранить"><IconCheck size={16} /></button>
+                  <button onClick={() => setEditingZoneId(null)} className="btn-ghost px-2" title="Отмена"><IconClose size={16} /></button>
+                </>
+              ) : (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-loko-text-primary">{z.name}</div>
+                    <div className="text-xs text-loko-text-muted">
+                      {Number(z.points_count || 0) > 0 ? `Используется ${z.points_count} точками` : 'Не используется'}
+                    </div>
+                  </div>
+                  <button onClick={() => { setEditingZoneId(z.id); setZoneDraft(z.name) }} className="text-loko-text-muted hover:text-loko-violet" title="Переименовать"><IconEdit size={16} /></button>
+                  <button onClick={() => handleDeleteZone(z)} disabled={zoneBusy} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
+                </>
+              )}
             </div>
           ))}
         </div>

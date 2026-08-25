@@ -3,6 +3,7 @@ import { pointsApi, organizationsApi, tabletsApi } from '@/lib/api'
 import { copyToClipboard } from '@/lib/clipboard'
 import { YandexPointsMap } from '@/components/YandexPointsMap'
 import { IconPlus, IconPin, IconTablet, IconTrash, IconEdit, IconClose } from '@/components/ui/icons'
+import { ZoneSelect } from '@/components/ui/ZoneSelect'
 
 function genPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
@@ -18,7 +19,7 @@ export function AdminPoints() {
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '', is_active: true })
+  const [editForm, setEditForm] = useState({ name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '', is_active: true, zone: '' })
   const [saving, setSaving] = useState(false)
   const [tablets, setTablets] = useState<any[]>([])
   const [expandedPointId, setExpandedPointId] = useState<string | null>(null)
@@ -26,7 +27,7 @@ export function AdminPoints() {
   const [savingTablet, setSavingTablet] = useState(false)
   const [createdTabletInfo, setCreatedTabletInfo] = useState<{ pointName: string; login: string; password: string } | null>(null)
   const [form, setForm] = useState({
-    organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false,
+    organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false, zone: '',
   })
 
   const load = () => {
@@ -41,7 +42,7 @@ export function AdminPoints() {
 
   const openEdit = (p: any) => {
     setEditingId(p.id)
-    setEditForm({ name: p.name, address: p.address, phone: p.phone || '', contact_name: p.contact_name || '', email: p.email || '', working_hours: p.working_hours || '09:00-21:00', is_active: p.is_active })
+    setEditForm({ name: p.name, address: p.address, phone: p.phone || '', contact_name: p.contact_name || '', email: p.email || '', working_hours: p.working_hours || '09:00-21:00', is_active: p.is_active, zone: p.zone || '' })
     setShowForm(false)
   }
 
@@ -75,7 +76,7 @@ export function AdminPoints() {
       const result = await pointsApi.create(form)
       setShowForm(false)
       const pointName = form.name
-      setForm({ organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false })
+      setForm({ organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false, zone: '' })
       load()
       // Если создан планшет — показываем попап с логином/паролем
       if (result.tablet) {
@@ -190,6 +191,10 @@ export function AdminPoints() {
               <label className="block text-xs text-loko-text-muted mb-1">Часы работы</label>
               <input className="input w-full" value={form.working_hours} onChange={e => setForm({ ...form, working_hours: e.target.value })} />
             </div>
+            <div>
+              <label className="block text-xs text-loko-text-muted mb-1">Зона</label>
+              <ZoneSelect value={form.zone} onChange={v => setForm({ ...form, zone: v })} />
+            </div>
             <div className="flex items-center gap-3 pt-4">
               <input type="checkbox" id="has_tablet" checked={form.has_tablet} onChange={e => setForm({ ...form, has_tablet: e.target.checked })} className="h-4 w-4" />
               <label htmlFor="has_tablet" className="text-sm text-loko-text-primary">Есть планшет (автосоздание логина/пароля)</label>
@@ -220,6 +225,7 @@ export function AdminPoints() {
                   <input className="input w-full" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="Телефон" />
                   <input className="input w-full" value={editForm.contact_name} onChange={e => setEditForm(f => ({ ...f, contact_name: e.target.value }))} placeholder="Контакт" />
                   <input className="input w-full" value={editForm.working_hours} onChange={e => setEditForm(f => ({ ...f, working_hours: e.target.value }))} placeholder="Часы" />
+                  <ZoneSelect value={editForm.zone} onChange={v => setEditForm(f => ({ ...f, zone: v }))} />
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" disabled={saving} className="btn-brand text-xs disabled:opacity-50">{saving ? '…' : 'Сохранить'}</button>
@@ -248,6 +254,7 @@ export function AdminPoints() {
                   {p.contact_name && <div>Контакт: {p.contact_name}</div>}
                   {p.email && <div>Email: {p.email}</div>}
                   <div>Часы: {p.working_hours}</div>
+                  {p.zone && <div>Зона: {p.zone}</div>}
                 </div>
                 <div className="mt-3 flex items-center gap-2">
                   <button onClick={() => handleToggleActive(p)} className={`badge cursor-pointer ${p.is_active ? 'badge-success' : 'badge-neutral'}`}>

@@ -33,16 +33,16 @@ pointsRouter.get('/', requireAuth, async (req, res) => {
 // ── POST /api/points ──────────────────────────────────────
 pointsRouter.post('/', requireAdmin, async (req, res) => {
   try {
-    const { organization_id, name, address, phone, contact_name, email, working_hours, has_tablet } = req.body
+    const { organization_id, name, address, phone, contact_name, email, working_hours, has_tablet, zone } = req.body
     if (!organization_id || !name || !address) {
       return res.status(400).json({ error: 'Обязательные поля: organization_id, name, address' })
     }
 
     const result = await pool.query(
-      `INSERT INTO points (organization_id, name, address, phone, contact_name, email, working_hours, has_tablet)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO points (organization_id, name, address, phone, contact_name, email, working_hours, has_tablet, zone)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
-      [organization_id, name, address, phone || '', contact_name || '', email || '', working_hours || '09:00-21:00', has_tablet || false]
+      [organization_id, name, address, phone || '', contact_name || '', email || '', working_hours || '09:00-21:00', has_tablet || false, zone || '']
     )
 
     const point = result.rows[0]
@@ -63,7 +63,7 @@ pointsRouter.post('/', requireAdmin, async (req, res) => {
 // ── PATCH /api/points/:id ─────────────────────────────────
 pointsRouter.patch('/:id', requireAdmin, async (req, res) => {
   try {
-    const allowed = ['name', 'address', 'phone', 'contact_name', 'email', 'working_hours', 'is_active', 'has_tablet']
+    const allowed = ['name', 'address', 'phone', 'contact_name', 'email', 'working_hours', 'is_active', 'has_tablet', 'zone']
     const updates: string[] = []
     const values: any[] = []
     let idx = 1
@@ -133,12 +133,12 @@ pointsRouter.post('/:id/tablet', requireAdmin, async (req, res) => {
     const pointNum = countRes.rows[0].count
     const login = `${orgSlug}-t${pointNum}`
 
-    // Upsert: если планшет для этой точки уже есть — обновляем пароль
+    // Upsert: если планшет с таким логином уже есть — обновляем пароль
     await pool.query(
-      `INSERT INTO tablets (name, serial, organization_id, point_id, login, password_hash, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'offline')
-       ON CONFLICT (serial) DO UPDATE SET password_hash = $6, point_id = $4`,
-      [`Tablet-${login}`, `serial-${login}`, p.organization_id, pointId, login, hash]
+      `INSERT INTO tablets (name, organization_id, point_id, login, password_hash, status)
+       VALUES ($1, $2, $3, $4, $5, 'offline')
+       ON CONFLICT (login) DO UPDATE SET password_hash = $5, point_id = $3`,
+      [`Tablet-${login}`, p.organization_id, pointId, login, hash]
     )
 
     // Обновляем точку
@@ -166,9 +166,9 @@ async function createTabletForPoint(pointId: string, orgId: string, pointName: s
   const hash = await bcrypt.hash(password, 12)
 
   await pool.query(
-    `INSERT INTO tablets (name, serial, organization_id, point_id, login, password_hash, password_plain, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'offline')`,
-    [`Tablet-${login}`, `serial-${login}`, orgId, pointId, login, hash, password]
+    `INSERT INTO tablets (name, organization_id, point_id, login, password_hash, password_plain, status)
+     VALUES ($1, $2, $3, $4, $5, $6, 'offline')`,
+    [`Tablet-${login}`, orgId, pointId, login, hash, password]
   )
 
   return { login, password }
