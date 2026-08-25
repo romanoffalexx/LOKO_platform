@@ -40,6 +40,17 @@ pointOffersRouter.post('/', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Обязательные поля: point_id, offer_id' })
     }
 
+    // Точка должна принадлежать организации, которой принадлежит акция
+    const { rows: check } = await pool.query(
+      `SELECT p.id FROM points p
+       JOIN offers o ON o.id = $2
+       WHERE p.id = $1 AND p.organization_id = o.organization_id`,
+      [point_id, offer_id]
+    )
+    if (check.length === 0) {
+      return res.status(400).json({ error: 'Точка принадлежит другой организации' })
+    }
+
     const result = await pool.query(
       `INSERT INTO point_offers (point_id, offer_id, max_count, is_active)
        VALUES ($1, $2, $3, $4)

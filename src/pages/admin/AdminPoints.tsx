@@ -4,6 +4,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { YandexPointsMap } from '@/components/YandexPointsMap'
 import { IconPlus, IconPin, IconTablet, IconTrash, IconEdit, IconClose } from '@/components/ui/icons'
 import { ZoneSelect } from '@/components/ui/ZoneSelect'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 function genPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
@@ -29,6 +30,7 @@ export function AdminPoints() {
   const [form, setForm] = useState({
     organization_id: '', name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false, zone: '',
   })
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'point' | 'tablet'; id: string; name: string } | null>(null)
 
   const load = () => {
     setLoading(true)
@@ -108,21 +110,16 @@ export function AdminPoints() {
     }
   }
 
-  const handleDeleteTablet = async (id: string) => {
-    if (!confirm('Удалить планшет?')) return
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return
     try {
-      await tabletsApi.delete(id)
-      setExpandedPointId(null)
-      load()
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Удалить точку?')) return
-    try {
-      await pointsApi.delete(id)
+      if (confirmDelete.type === 'point') {
+        await pointsApi.delete(confirmDelete.id)
+      } else {
+        await tabletsApi.delete(confirmDelete.id)
+        setExpandedPointId(null)
+      }
+      setConfirmDelete(null)
       load()
     } catch (err: any) {
       setError(err.message)
@@ -246,7 +243,7 @@ export function AdminPoints() {
                   </div>
                   <div className="flex items-center gap-1">
                     <button onClick={() => openEdit(p)} className="text-loko-text-muted hover:text-loko-pink"><IconEdit size={14} /></button>
-                    <button onClick={() => handleDelete(p.id)} className="text-loko-text-muted hover:text-red-400"><IconTrash size={14} /></button>
+                    <button onClick={() => setConfirmDelete({ type: 'point', id: p.id, name: p.name })} className="text-loko-text-muted hover:text-red-400"><IconTrash size={14} /></button>
                   </div>
                 </div>
                 <div className="mt-3 space-y-1 text-xs text-loko-text-secondary">
@@ -309,7 +306,7 @@ export function AdminPoints() {
                               <div className="font-mono text-[10px] text-loko-pink">{t.login} · {t.password_plain || 'пароль не задан'}</div>
                             </div>
                             <button onClick={() => openTabletEdit(t)} className="text-loko-text-muted hover:text-loko-violet" title="Редактировать"><IconEdit size={14} /></button>
-                            <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-red-400" title="Удалить"><IconTrash size={14} /></button>
+                            <button onClick={() => setConfirmDelete({ type: 'tablet', id: t.id, name: t.name })} className="text-loko-text-muted hover:text-red-400" title="Удалить"><IconTrash size={14} /></button>
                           </div>
                         )}
                       </div>
@@ -364,6 +361,14 @@ export function AdminPoints() {
           </div>
         </div>
       )}
+
+      {/* Подтверждение удаления точки/планшета */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        message={confirmDelete ? `${confirmDelete.type === 'point' ? 'Точка' : 'Планшет'} «${confirmDelete.name}» будет удален(а) безвозвратно.` : ''}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }

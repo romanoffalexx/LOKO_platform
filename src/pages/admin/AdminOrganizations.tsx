@@ -4,6 +4,7 @@ import { organizationsApi, invitationsApi } from '@/lib/api'
 import { validateLogo } from '@/lib/image'
 import { copyToClipboard } from '@/lib/clipboard'
 import { IconPlus, IconSearch, IconFilter, IconPhone, IconPin, IconChevronRight, IconMail, IconClose, IconCheck, IconRefresh } from '@/components/ui/icons'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 export function AdminOrganizations() {
   const [orgs, setOrgs] = useState<any[]>([])
@@ -20,6 +21,7 @@ export function AdminOrganizations() {
   const [inviteUrl, setInviteUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [createdInfo, setCreatedInfo] = useState<{ name: string; email: string; password: string; emailSent: boolean } | null>(null)
+  const [deleteOrg, setDeleteOrg] = useState<any>(null)
 
   const reload = () => {
     setLoading(true)
@@ -56,6 +58,20 @@ export function AdminOrganizations() {
       reload()
     } catch (err) {
       console.error('[Org create]', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteOrg = async () => {
+    if (!deleteOrg) return
+    setSaving(true)
+    try {
+      await organizationsApi.delete(deleteOrg.id)
+      setDeleteOrg(null)
+      reload()
+    } catch (err) {
+      console.error('[Org delete]', err)
     } finally {
       setSaving(false)
     }
@@ -311,15 +327,30 @@ export function AdminOrganizations() {
                 <div className="flex items-center gap-2">
                   <h3 className="truncate text-base font-semibold text-loko-text-primary">{o.name}</h3>
                   {o.has_tablet && <span className="badge badge-pink !py-0 !px-2 text-[10px]">планшет</span>}
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); setDeleteOrg(o) }}
+                    className="ml-auto shrink-0 text-loko-text-muted transition-colors hover:text-loko-danger"
+                    title="Удалить организацию"
+                  >
+                    <IconClose size={16} />
+                  </button>
                 </div>
                 {o.category && <div className="text-xs text-loko-violet mt-0.5">{o.category}</div>}
                 <div className="mt-1 flex items-center gap-1 text-xs text-loko-text-muted">
                   <IconPin size={12} /> {o.address}
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <div className="mt-3 grid grid-cols-5 gap-2 text-center">
                   <div className="rounded-lg bg-loko-bg-base/40 p-2">
                     <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Акций</div>
                     <div className="mt-0.5 text-sm font-semibold text-loko-text-primary">{o.active_offers ?? 0}</div>
+                  </div>
+                  <div className="rounded-lg bg-loko-bg-base/40 p-2">
+                    <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Точки</div>
+                    <div className="mt-0.5 text-sm font-semibold text-loko-text-primary">{o.points_count ?? 0}</div>
+                  </div>
+                  <div className="rounded-lg bg-loko-bg-base/40 p-2">
+                    <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Планшеты</div>
+                    <div className="mt-0.5 text-sm font-semibold text-loko-text-primary">{o.tablets_count ?? 0}</div>
                   </div>
                   <div className="rounded-lg bg-loko-bg-base/40 p-2">
                     <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">Лиды</div>
@@ -342,6 +373,14 @@ export function AdminOrganizations() {
           </Link>
         ))}
       </div>
+
+      {/* Подтверждение удаления организации */}
+      <ConfirmDialog
+        open={!!deleteOrg}
+        message={deleteOrg ? `Организация «${deleteOrg.name}» и все её данные будут удалены безвозвратно.` : ''}
+        onConfirm={handleDeleteOrg}
+        onCancel={() => setDeleteOrg(null)}
+      />
     </div>
   )
 }

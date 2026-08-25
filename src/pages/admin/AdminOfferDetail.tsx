@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { offersApi, pointOffersApi, pointsApi } from '@/lib/api'
 import {
   IconPhone, IconMail, IconPin, IconShield, IconTablet, IconChevronRight,
   IconCheck, IconPlus, IconClose, IconGift,
 } from '@/components/ui/icons'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 export function AdminOfferDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [offer, setOffer] = useState<any>(null)
   const [points, setPoints] = useState<any[]>([])
   const [pointOffers, setPointOffers] = useState<any[]>([])
@@ -16,6 +18,7 @@ export function AdminOfferDetail() {
   const [selectedPointId, setSelectedPointId] = useState('')
   const [maxCount, setMaxCount] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleteOffer, setDeleteOffer] = useState(false)
 
   const reload = () => {
     if (!id) return
@@ -25,7 +28,8 @@ export function AdminOfferDetail() {
       pointOffersApi.list(),
     ]).then(([offerData, pointsData, poData]) => {
       setOffer(offerData)
-      setPoints(pointsData)
+      // Только точки организации, которой принадлежит акция
+      setPoints(pointsData.filter(p => p.organization_id === offerData.organization_id))
       setPointOffers(poData.filter(po => po.offer_id === id))
     }).catch(err => console.error('[OfferDetail]', err))
       .finally(() => setLoading(false))
@@ -71,6 +75,20 @@ export function AdminOfferDetail() {
     }
   }
 
+  const handleDeleteOffer = async () => {
+    if (!id) return
+    setSaving(true)
+    try {
+      await offersApi.delete(id)
+      setDeleteOffer(false)
+      navigate('/admin/offers')
+    } catch (err) {
+      console.error('[Offer delete]', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loading) return <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>
   if (!offer) return <div className="py-12 text-center text-loko-danger">Акция не найдена</div>
 
@@ -109,6 +127,13 @@ export function AdminOfferDetail() {
             <span className={`badge ${offer.status === 'active' ? 'badge-success' : offer.status === 'scheduled' ? 'badge-violet' : 'badge-neutral'}`}>
               {offer.status === 'active' ? 'идёт' : offer.status === 'scheduled' ? 'запланирована' : 'архив'}
             </span>
+            <button
+              onClick={() => setDeleteOffer(true)}
+              className="text-loko-text-muted transition-colors hover:text-loko-danger"
+              title="Удалить акцию"
+            >
+              <IconClose size={20} />
+            </button>
           </div>
         </div>
 
@@ -218,8 +243,16 @@ export function AdminOfferDetail() {
       {/* Подсказка */}
       <div className="mt-4 card flex items-center gap-3 border-loko-pink/30 bg-loko-pink/5 p-4 text-sm text-loko-text-secondary">
         <IconShield size={18} className="text-loko-pink" />
-        <span>Привязка определяет, на каких точках акция показывается в барабане. Лимит ограничивает количество выдач.</span>
+        <span>Акция автоматически доступна на всех точках организации, которая её создала. Привязка к точке задаёт лимит выдач на конкретной точке.</span>
       </div>
+
+      {/* Подтверждение удаления акции */}
+      <ConfirmDialog
+        open={deleteOffer}
+        message={`Акция «${offer.title}» и все связанные данные будут удалены безвозвратно.`}
+        onConfirm={handleDeleteOffer}
+        onCancel={() => setDeleteOffer(false)}
+      />
     </div>
   )
 }

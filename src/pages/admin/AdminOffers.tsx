@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { offersApi, organizationsApi } from '@/lib/api'
-import { IconSearch, IconFilter, IconPlus, IconCalendar, IconPin, IconClose, IconDownload } from '@/components/ui/icons'
+import { IconSearch, IconFilter, IconPlus, IconCalendar, IconClose, IconDownload } from '@/components/ui/icons'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { toCsv, downloadCsv } from '@/lib/csv'
 
 export function AdminOffers() {
@@ -12,10 +13,11 @@ export function AdminOffers() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     title: '', description: '', organization_id: '',
-    starts_at: '', ends_at: '', zone: 'all',
+    starts_at: '', ends_at: '',
     emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)',
     coupon_count: '100',
   })
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
 
   const reload = () => {
     setLoading(true)
@@ -37,10 +39,24 @@ export function AdminOffers() {
         coupon_count: Number(form.coupon_count),
       })
       setShowCreate(false)
-      setForm({ title: '', description: '', organization_id: '', starts_at: '', ends_at: '', zone: 'all', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100' })
+      setForm({ title: '', description: '', organization_id: '', starts_at: '', ends_at: '', emoji: '🎁', bg_gradient: 'linear-gradient(135deg, #A855F7, #EC4899)', coupon_count: '100' })
       reload()
     } catch (err) {
       console.error('[Offer create]', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteOffer = async () => {
+    if (!deleteTarget) return
+    setSaving(true)
+    try {
+      await offersApi.delete(deleteTarget.id)
+      setDeleteTarget(null)
+      reload()
+    } catch (err) {
+      console.error('[Offer delete]', err)
     } finally {
       setSaving(false)
     }
@@ -51,7 +67,6 @@ export function AdminOffers() {
       { key: 'title', label: 'Название' },
       { key: 'organization_name', label: 'Организация' },
       { key: 'status', label: 'Статус' },
-      { key: 'zone', label: 'Зона' },
       { key: 'total_issued', label: 'Выдано' },
       { key: 'total_redeemed', label: 'Погашено' },
       { key: 'starts_at', label: 'Начало' },
@@ -106,10 +121,6 @@ export function AdminOffers() {
               <input type="date" value={form.ends_at} onChange={e => setForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-loko-text-muted mb-1">Зона</label>
-              <input value={form.zone} onChange={e => setForm(p => ({ ...p, zone: e.target.value }))} className="input w-full" placeholder="all, center, north…" />
-            </div>
-            <div>
               <label className="block text-xs font-medium text-loko-text-muted mb-1">Эмодзи</label>
               <input value={form.emoji} onChange={e => setForm(p => ({ ...p, emoji: e.target.value }))} className="input w-full" placeholder="🎁" />
             </div>
@@ -158,9 +169,6 @@ export function AdminOffers() {
                 <IconCalendar size={12} />
                 {o.starts_at?.slice(0, 10)} → {o.ends_at?.slice(0, 10)}
               </div>
-              <div className="flex items-center gap-2 text-xs text-loko-text-muted">
-                <IconPin size={12} />{o.zone}
-              </div>
               <p className="line-clamp-2 text-sm text-loko-text-secondary">{o.description}</p>
               <div className="grid grid-cols-2 gap-2 pt-2 text-center">
                 <div className="rounded-lg bg-loko-bg-base/40 p-2">
@@ -176,12 +184,29 @@ export function AdminOffers() {
                 <span className={`badge ${o.status === 'active' ? 'badge-success' : o.status === 'scheduled' ? 'badge-violet' : 'badge-neutral'}`}>
                   {o.status === 'active' ? 'идёт' : o.status === 'scheduled' ? 'запланирована' : 'архив'}
                 </span>
-                <span className="text-xs text-loko-text-muted">{(o.allowed_org_ids ?? []).length} точек</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-loko-text-muted">{(o.allowed_org_ids ?? []).length} точек</span>
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(o) }}
+                    className="text-loko-text-muted transition-colors hover:text-loko-danger"
+                    title="Удалить акцию"
+                  >
+                    <IconClose size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           </Link>
         ))}
       </div>
+
+      {/* Подтверждение удаления акции */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        message={deleteTarget ? `Акция «${deleteTarget.title}» и все связанные данные будут удалены безвозвратно.` : ''}
+        onConfirm={handleDeleteOffer}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import {
   IconCheck, IconPlus, IconClose, IconEdit,
 } from '@/components/ui/icons'
 import { ZoneSelect } from '@/components/ui/ZoneSelect'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 function genPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
@@ -37,6 +38,7 @@ export function AdminOrganizationDetail() {
   const [showPwdTablet, setShowPwdTablet] = useState(false)
   const [origTabletPwd, setOrigTabletPwd] = useState('')
   const [createdTabletInfo, setCreatedTabletInfo] = useState<{ name: string; login: string; password: string; emailSent: boolean; partnerEmail: string | null } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'tablet' | 'offer'; id: string; name: string } | null>(null)
   const [monitorForm, setMonitorForm] = useState({ name: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
   const [loading, setLoading] = useState(true)
   const [showPointForm, setShowPointForm] = useState(false)
@@ -182,12 +184,19 @@ export function AdminOrganizationDetail() {
     }
   }
 
-  const handleDeleteTablet = async (tabletId: string) => {
-    if (!confirm('Удалить планшет?')) return
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return
     try {
-      await tabletsApi.delete(tabletId)
-      setTablets(prev => prev.filter(t => t.id !== tabletId))
-    } catch (err) { console.error('[Tablet delete]', err) }
+      if (confirmDelete.type === 'tablet') {
+        await tabletsApi.delete(confirmDelete.id)
+        setTablets(prev => prev.filter(t => t.id !== confirmDelete.id))
+      } else {
+        await offersApi.delete(confirmDelete.id)
+        setOrgOffers(prev => prev.filter(o => o.id !== confirmDelete.id))
+        setAllOffers(prev => prev.filter(o => o.id !== confirmDelete.id))
+      }
+      setConfirmDelete(null)
+    } catch (err) { console.error('[Delete]', err) }
   }
 
   const openEditTablet = (t: any) => {
@@ -319,15 +328,6 @@ export function AdminOrganizationDetail() {
     } finally {
       setSavingOffer(false)
     }
-  }
-
-  const handleDeleteOffer = async (offerId: string) => {
-    if (!confirm('Удалить акцию?')) return
-    try {
-      await offersApi.delete(offerId)
-      setOrgOffers(prev => prev.filter(o => o.id !== offerId))
-      setAllOffers(prev => prev.filter(o => o.id !== offerId))
-    } catch (err) { console.error('[Offer delete]', err) }
   }
 
   if (loading) return <div className="py-12 text-center text-sm text-loko-text-muted">Загрузка…</div>
@@ -655,7 +655,7 @@ export function AdminOrganizationDetail() {
                           {o.status === 'active' ? 'идёт' : o.status === 'scheduled' ? 'скоро' : 'архив'}
                         </span>
                         <button onClick={() => openEditOffer(o)} className="text-loko-text-muted hover:text-loko-pink" title="Редактировать"><IconEdit size={16} /></button>
-                        <button onClick={() => handleDeleteOffer(o.id)} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
+                        <button onClick={() => setConfirmDelete({ type: 'offer', id: o.id, name: o.title })} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
                       </div>
                     )}
                   </div>
@@ -750,7 +750,7 @@ export function AdminOrganizationDetail() {
                             </div>
                           </div>
                           <button onClick={() => { setActiveTab('tablets'); openEditTablet(t) }} className="text-loko-text-muted hover:text-loko-violet" title="Редактировать"><IconEdit size={16} /></button>
-                          <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
+                          <button onClick={() => setConfirmDelete({ type: 'tablet', id: t.id, name: t.name })} className="text-loko-text-muted hover:text-loko-danger" title="Удалить"><IconClose size={16} /></button>
                         </div>
                       ))}
                     </div>
@@ -844,7 +844,7 @@ export function AdminOrganizationDetail() {
                         )}
                       </div>
                       <button onClick={() => openEditTablet(t)} className="text-loko-text-muted hover:text-loko-violet"><IconEdit size={16} /></button>
-                      <button onClick={() => handleDeleteTablet(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                      <button onClick={() => setConfirmDelete({ type: 'tablet', id: t.id, name: t.name })} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
                     </div>
                   )}
                 </div>
@@ -1072,6 +1072,14 @@ export function AdminOrganizationDetail() {
           </div>
         </div>
       )}
+
+      {/* Подтверждение удаления планшета/акции */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        message={confirmDelete ? `${confirmDelete.type === 'tablet' ? 'Планшет' : 'Акция'} «${confirmDelete.name}» будет удален(а) безвозвратно.` : ''}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }

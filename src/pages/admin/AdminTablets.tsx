@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { tabletsApi, pointsApi } from '@/lib/api'
 import { copyToClipboard } from '@/lib/clipboard'
 import { IconSearch, IconTablet, IconRefresh, IconClose, IconEdit } from '@/components/ui/icons'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 function genPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%'
@@ -22,6 +23,7 @@ export function AdminTablets() {
   const [saving, setSaving] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
   const [origPassword, setOrigPassword] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
 
   const load = async () => {
     try {
@@ -36,11 +38,12 @@ export function AdminTablets() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Удалить планшет?')) return
+  const handleDelete = async () => {
+    if (!deleteTarget) return
     try {
-      await tabletsApi.delete(id)
-      setTablets(prev => prev.filter(t => t.id !== id))
+      await tabletsApi.delete(deleteTarget.id)
+      setTablets(prev => prev.filter(t => t.id !== deleteTarget.id))
+      setDeleteTarget(null)
     } catch (err) { console.error('[Tablet delete]', err) }
   }
 
@@ -208,7 +211,7 @@ export function AdminTablets() {
                   <div className="md:col-span-1 text-xs text-loko-text-muted">{t.last_seen ? new Date(t.last_seen).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
                   <div className="md:col-span-1 flex items-center gap-2">
                     <button onClick={() => openEdit(t)} className="text-loko-text-muted hover:text-loko-violet"><IconEdit size={16} /></button>
-                    <button onClick={() => handleDelete(t.id)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
+                    <button onClick={() => setDeleteTarget(t)} className="text-loko-text-muted hover:text-loko-danger"><IconClose size={16} /></button>
                   </div>
                 </div>
               </div>
@@ -217,6 +220,14 @@ export function AdminTablets() {
         ))}
       </div>
       )}
+
+      {/* Подтверждение удаления планшета */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        message={deleteTarget ? `Планшет «${deleteTarget.name || deleteTarget.login}» будет удалён безвозвратно.` : ''}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

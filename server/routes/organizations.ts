@@ -13,7 +13,9 @@ organizationsRouter.get('/', async (_req: Request, res: Response) => {
       SELECT o.*,
         (SELECT COUNT(*) FROM offers WHERE organization_id = o.id AND status = 'active') AS active_offers,
         (SELECT COUNT(*) FROM leads  WHERE organization_id = o.id) AS total_leads,
-        (SELECT COUNT(*) FROM coupons WHERE organization_id = o.id AND status = 'redeemed') AS total_redeemed
+        (SELECT COUNT(*) FROM coupons WHERE organization_id = o.id AND status = 'redeemed') AS total_redeemed,
+        (SELECT COUNT(*) FROM points  WHERE organization_id = o.id) AS points_count,
+        (SELECT COUNT(*) FROM tablets WHERE organization_id = o.id) AS tablets_count
       FROM organizations o
       ORDER BY o.created_at DESC
     `)
@@ -30,7 +32,9 @@ organizationsRouter.get('/:id', async (req: Request, res: Response) => {
       `SELECT o.*,
         (SELECT COUNT(*) FROM offers WHERE organization_id = o.id AND status = 'active') AS active_offers,
         (SELECT COUNT(*) FROM leads  WHERE organization_id = o.id) AS total_leads,
-        (SELECT COUNT(*) FROM coupons WHERE organization_id = o.id AND status = 'redeemed') AS total_redeemed
+        (SELECT COUNT(*) FROM coupons WHERE organization_id = o.id AND status = 'redeemed') AS total_redeemed,
+        (SELECT COUNT(*) FROM points  WHERE organization_id = o.id) AS points_count,
+        (SELECT COUNT(*) FROM tablets WHERE organization_id = o.id) AS tablets_count
        FROM organizations o WHERE o.id = $1`,
       [req.params.id],
     )
