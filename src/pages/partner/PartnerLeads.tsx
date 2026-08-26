@@ -1,18 +1,27 @@
 import { useEffect, useState } from 'react'
 import { leadsApi } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { IconSearch, IconPhone, IconCheck, IconFilter, IconShield } from '@/components/ui/icons'
 
 export function PartnerLeads() {
+  const { user } = useAuth()
   const [leads, setLeads] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'new' | 'contacted' | 'redeemed'>('all')
 
   useEffect(() => {
     leadsApi.list()
-      .then(setLeads)
+      .then(data => {
+        // Фильтруем лиды только по организации партнёра
+        if (user?.organization_id) {
+          setLeads(data.filter(l => l.organization_id === user.organization_id))
+        } else {
+          setLeads([])
+        }
+      })
       .catch(err => console.error('[Leads]', err))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const filtered = filter === 'all' ? leads : leads.filter(l =>
     filter === 'new' ? !l.contacted :

@@ -189,20 +189,14 @@ const TrafficChart: FC<{ data: DashboardData['trafficByDay'] }> = ({ data: initi
 const NetworkStatusWidget: FC<{ data: DashboardData['networkStatus']; orgsWithMonitors: number }> = ({ data, orgsWithMonitors }) => {
   return (
     <div className="card p-5">
-      <div className="flex items-center justify-between">
-        <div className="text-base font-semibold text-loko-text-primary">Состояние сети</div>
-        <span className="badge badge-success gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-loko-success animate-pulse" />
-          {data.online}% online
-        </span>
-      </div>
+      <div className="text-base font-semibold text-loko-text-primary">Состояние сети</div>
       <div className="section-title mt-1">Устройства и точки</div>
 
       <div className="mt-4 flex flex-col gap-3">
         {[
-          { name: 'Планшеты', sub: `${data.tablets.online} устройств`, right: `${data.tablets.online} online`, badge: 'badge-success' },
+          { name: 'Планшеты', sub: `${data.tablets.total} устройств`, right: `${data.tablets.total}`, badge: 'badge-success' },
           { name: 'Мониторы', sub: `${orgsWithMonitors} организаций`, right: `${orgsWithMonitors}`, badge: 'badge-violet' },
-          { name: 'Точки', sub: `${data.tablets.total} всего`, right: `${data.tablets.online}`, badge: 'badge-violet' },
+          { name: 'Точки', sub: `${data.tablets.total} всего`, right: `${data.tablets.total}`, badge: 'badge-violet' },
         ].map((r) => (
           <div key={r.name} className="card-elevated flex items-center gap-4 p-3.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-loko-bg-base/60 text-loko-pink">

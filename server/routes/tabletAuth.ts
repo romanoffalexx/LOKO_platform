@@ -204,18 +204,18 @@ tabletAuthRouter.post('/spin', async (req, res) => {
 
     const couponResult = await pool.query(
       `INSERT INTO coupons (code, user_id, offer_id, organization_id, source_tablet_id,
-                           source_point_id, status, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'issued', $7)
+                           source_point_id, source_point, status, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'issued', $8)
        RETURNING id`,
-      [couponCode, participantId, winner.offer_id, winner.offer_org_id, req.session.userId, pointId, expiresAt]
+      [couponCode, participantId, winner.offer_id, winner.offer_org_id, req.session.userId, pointId, pointName, expiresAt]
     )
 
     // ── Создание лида ──
     await pool.query(
       `INSERT INTO leads (coupon_id, client_name, client_phone, offer_title,
-                          organization_id, source_tablet, source_point_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [couponResult.rows[0].id, name, phone, winner.title, orgId, req.session.userId, pointId]
+                          organization_id, source_tablet, source_point_id, source_point)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [couponResult.rows[0].id, name, phone, winner.title, orgId, req.session.userId, pointId, pointName]
     )
 
     // ── Обновление счётчиков ──

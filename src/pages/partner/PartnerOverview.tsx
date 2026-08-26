@@ -1,30 +1,30 @@
 import { useEffect, useState } from 'react'
-import { offersApi, couponsApi, leadsApi, dashboardApi } from '@/lib/api'
-import { IconArrowUp, IconGift, IconTicket, IconTrend, IconUsers, IconPhone } from '@/components/ui/icons'
+import { offersApi, couponsApi, leadsApi } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { IconGift, IconTicket, IconTrend, IconUsers, IconPhone } from '@/components/ui/icons'
 
 export function PartnerOverview() {
+  const { user } = useAuth()
   const [myOffers, setMyOffers] = useState<any[]>([])
   const [myLeads, setMyLeads] = useState<any[]>([])
   const [myCoupons, setMyCoupons] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!user?.organization_id) return
     // Загружаем все данные параллельно
     Promise.all([
       offersApi.list(),
       leadsApi.list(),
       couponsApi.list(),
     ]).then(([offers, leads, coupons]) => {
-      // Определяем «свою» организацию по первой найденной акции
-      const firstOrgId = offers[0]?.organization_id
-      if (firstOrgId) {
-        setMyOffers(offers.filter(o => o.organization_id === firstOrgId))
-        setMyLeads(leads.filter(l => l.organization_id === firstOrgId))
-        setMyCoupons(coupons.filter(c => c.organization_id === firstOrgId))
-      }
+      const orgId = user.organization_id
+      setMyOffers(offers.filter(o => o.organization_id === orgId))
+      setMyLeads(leads.filter(l => l.organization_id === orgId))
+      setMyCoupons(coupons.filter(c => c.organization_id === orgId))
     }).catch(err => console.error('[PartnerOverview]', err))
       .finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   const redeemed = myCoupons.filter(c => c.status === 'redeemed').length
   const convPct = myCoupons.length > 0 ? `${(redeemed / myCoupons.length * 100).toFixed(1)}%` : '—'

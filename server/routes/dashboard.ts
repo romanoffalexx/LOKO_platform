@@ -23,7 +23,7 @@ dashboardRouter.get('/', async (req: Request, res: Response) => {
       recentEvents,
     ] = await Promise.all([
       // Организации с планшетами
-      pool.query(`SELECT COUNT(*) AS count FROM organizations WHERE has_tablet = true`),
+      pool.query(`SELECT COUNT(DISTINCT organization_id) AS count FROM tablets WHERE organization_id IS NOT NULL`),
       // Организации с мониторами (есть записи в screens)
       pool.query(`SELECT COUNT(DISTINCT organization_id) AS count FROM screens WHERE organization_id IS NOT NULL`),
       // Уникальные участники (за период)
