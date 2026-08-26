@@ -160,7 +160,7 @@ export function AdminSettings() {
       </div>
 
       {/* Системные параметры */}
-      <div className="mt-4 card p-5">
+      {/* <div className="mt-4 card p-5">
         <h3 className="text-base font-semibold text-loko-text-primary">Системные параметры</h3>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
           {[
@@ -177,7 +177,7 @@ export function AdminSettings() {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* Справочник зон точек */}
       <div className="mt-4 card p-5">
