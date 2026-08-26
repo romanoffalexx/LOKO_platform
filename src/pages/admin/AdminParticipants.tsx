@@ -73,8 +73,6 @@ export function AdminParticipants() {
         {[
           { id: 'all', label: 'Все' },
           { id: 'new', label: 'Новые' },
-          { id: 'contacted', label: 'На связи' },
-          { id: 'redeemed', label: 'Погасили' },
         ].map(t => (
           <button key={t.id} onClick={() => setFilter(t.id as any)} className={`rounded-lg px-3 py-1.5 ${filter === t.id ? 'bg-loko-bg-elevated text-loko-text-primary' : 'text-loko-text-secondary'}`}>
             {t.label}

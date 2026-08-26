@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { pool } from '../db/pool.js'
+import { sendEmail } from '../services/email.js'
 
 export const tabletAuthRouter = Router()
 
@@ -236,6 +237,41 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       'INSERT INTO spin_participations (phone, point_id) VALUES ($1, $2)',
       [phone, pointId]
     )
+
+    // ── Уведомление организации о выигрыше ──
+    // Отправляем email организации, которой принадлежит акция (не точке, где играли)
+    const { rows: orgRows } = await pool.query(
+      `SELECT u.email, o.name FROM organizations o
+       LEFT JOIN users u ON u.organization_id = o.id AND u.role = 'partner' AND u.is_active = true
+       WHERE o.id = $1 LIMIT 1`,
+      [winner.offer_org_id]
+    )
+    const orgEmail = orgRows[0]?.email
+    const orgName = orgRows[0]?.name || 'Организация'
+    
+    if (orgEmail) {
+      try {
+        await sendEmail(
+          orgEmail,
+          `[ЛОКО] Новый выигрыш — ${winner.title}`,
+          `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">
+            <h2 style="color:#A855F7">Новый выигрыш!</h2>
+            <p>В вашей организации <strong>${orgName}</strong> участник выиграл купон:</p>
+            <div style="background:#f5f5f5;padding:15px;border-radius:8px;margin:15px 0">
+              <p style="margin:5px 0"><strong>Акция:</strong> ${winner.title}</p>
+              <p style="margin:5px 0"><strong>Купон:</strong> ${couponCode}</p>
+              <p style="margin:5px 0"><strong>Имя:</strong> ${name}</p>
+              <p style="margin:5px 0"><strong>Телефон:</strong> ${phone}</p>
+              <p style="margin:5px 0"><strong>Точка:</strong> ${pointName}</p>
+              <p style="margin:5px 0"><strong>Действителен до:</strong> ${new Date(expiresAt).toLocaleDateString('ru')}</p>
+            </div>
+            <p>Участник может получить приз в вашей организации.</p>
+          </div>`
+        )
+      } catch (emailErr: any) {
+        console.error('[TabletAuth] Email send error:', emailErr.message)
+      }
+    }
 
     res.json({
       won: true,

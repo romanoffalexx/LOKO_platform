@@ -25,7 +25,21 @@ export const TabletRegister: FC = () => {
     if (!val.trim().startsWith('+7')) {
       val = '+7 ' + val.replace(/\D/g, '')
     }
-    setPhoneRaw(val)
+    // Ограничение: после +7 только 10 цифр (итого +7 XXXXXXXXXX)
+    const digits = val.replace(/\D/g, '')
+    if (digits.length > 11) {
+      val = '+7 ' + digits.slice(1, 11)
+    } else {
+      val = '+7 ' + digits.slice(1)
+    }
+    // Форматирование: +7 (xxx) xxx xx xx
+    const d = digits.slice(1) // убираем первую 7 или 8
+    let formatted = '+7'
+    if (d.length > 0) formatted += ' (' + d.slice(0, 3)
+    if (d.length >= 3) formatted += ') ' + d.slice(3, 6)
+    if (d.length >= 6) formatted += ' ' + d.slice(6, 8)
+    if (d.length >= 8) formatted += ' ' + d.slice(8, 10)
+    setPhoneRaw(formatted)
     const norm = normalizePhone(val)
     if (norm.length >= 12) {
       setSearching(true)
