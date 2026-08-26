@@ -34,7 +34,7 @@ export function AdminParticipants() {
   }
 
   const handleExport = () => {
-    const csv = toCsv(filtered, [
+    const csv = toCsv(filtered.map(p => ({ ...p, source: p.last_source_point || p.source || '' })), [
       { key: 'name', label: 'Имя' },
       { key: 'phone', label: 'Телефон' },
       { key: 'source', label: 'Источник' },
@@ -118,7 +118,7 @@ export function AdminParticipants() {
                 <div className="truncate text-sm font-semibold text-loko-text-primary">{p.name}</div>
                 <div className="text-xs text-loko-text-muted">{p.phone}</div>
               </div>
-              <div className="md:col-span-2 text-sm text-loko-text-secondary">{p.source || '—'}</div>
+              <div className="md:col-span-2 text-sm text-loko-text-secondary">{p.last_source_point || p.source || '—'}</div>
               <div className="flex items-center gap-3 md:contents">
                 <div className="md:col-span-1 text-center text-sm">
                   <span className="md:hidden text-xs text-loko-text-muted mr-1">Участий:</span>

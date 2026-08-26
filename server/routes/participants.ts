@@ -12,7 +12,11 @@ participantsRouter.get('/', async (req: Request, res: Response) => {
 
   try {
     const { limit, offset, phone } = req.query
-    let sql = `SELECT * FROM participants`
+    let sql = `
+      SELECT p.*,
+        (SELECT l.source_point FROM leads l WHERE l.client_phone = p.phone AND l.source_point != '' LIMIT 1) as last_source_point
+      FROM participants p
+    `
     const params: any[] = []
     let idx = 1
 

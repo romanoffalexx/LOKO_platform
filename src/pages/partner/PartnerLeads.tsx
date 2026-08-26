@@ -83,7 +83,7 @@ export function PartnerLeads() {
             </div>
             <div className="col-span-2 text-xs text-loko-text-secondary">{l.client_phone}</div>
             <div className="col-span-3 text-sm text-loko-text-primary">{l.offer_title}</div>
-            <div className="col-span-2 text-xs text-loko-text-muted">{l.source_tablet || '—'} · {l.source_point || '—'}</div>
+            <div className="col-span-2 text-xs text-loko-text-muted">{l.source_point || '—'}</div>
             <div className="col-span-1 text-xs text-loko-text-muted">{new Date(l.created_at).toLocaleDateString('ru')}</div>
             <div className="col-span-1 flex items-center justify-end gap-1.5">
               <a href={`tel:${l.client_phone.replace(/\D/g, '')}`} className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-brand text-white" title="Позвонить">
