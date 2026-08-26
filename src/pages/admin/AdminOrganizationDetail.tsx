@@ -339,6 +339,12 @@ export function AdminOrganizationDetail() {
 
   return (
     <div>
+      <div className="mb-4 flex items-center gap-2 text-sm text-loko-text-secondary">
+        <Link to="/admin/organizations" className="hover:text-loko-text-primary">Организации</Link>
+        <IconChevronRight size={14} />
+        <span className="text-loko-text-primary">{org?.name || 'Загрузка...'}</span>
+      </div>
+
       {/* Hero-карточка */}
       <div className="card-elevated relative overflow-hidden p-6">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-gradient-brand opacity-25 blur-3xl" />
