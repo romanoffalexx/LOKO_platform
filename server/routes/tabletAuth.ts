@@ -116,22 +116,12 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       return res.status(400).json({ error: 'Вы уже участвовали в розыгрыше на этой точке' })
     }
 
-    // ── Проверка 2: Активные акции организации ──
-    // Акции привязаны к организации, точки наследуют их автоматически
+    // ── Проверка 2: Активные акции для розыгрыша ──
+    // Организация НЕ участвует в собственном розыгрыше.
+    // Только акции ДРУГИХ организаций, разрешённые галочками «Можно показывать».
     const now = new Date()
     const currentTime = now.toTimeString().slice(0, 8)
     const currentDate = now.toISOString()
-
-    const { rows: ownRows } = await pool.query(
-      `SELECT o.*, org.name as org_name
-       FROM offers o
-       JOIN organizations org ON org.id = o.organization_id
-       WHERE o.organization_id = $1
-         AND o.status = 'active'
-         AND o.starts_at <= $2::timestamptz
-         AND o.ends_at >= $2::timestamptz`,
-      [orgId, currentDate]
-    )
 
     // Фильтрация по времени суток
     const inTimeWindow = (o: any) => {
@@ -140,12 +130,6 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       }
       return true
     }
-
-    const available: any[] = ownRows.filter(inTimeWindow).map((o: any) => ({
-      ...o,
-      offer_id: o.id,
-      offer_org_id: o.organization_id,
-    }))
 
     // ── Акции других организаций, разрешённые галочками «Можно показывать» ──
     const { rows: allowedRows } = await pool.query(
@@ -159,13 +143,11 @@ tabletAuthRouter.post('/spin', async (req, res) => {
          AND o.ends_at >= $2::timestamptz`,
       [orgId, currentDate]
     )
-    const allowedAvailable = allowedRows.filter(inTimeWindow).map((o: any) => ({
+    const candidates: any[] = allowedRows.filter(inTimeWindow).map((o: any) => ({
       ...o,
       offer_id: o.id,
       offer_org_id: o.organization_id,
     }))
-
-    const candidates = [...available, ...allowedAvailable]
     if (candidates.length === 0) {
       return res.json({ won: false, message: 'Нет доступных акций для розыгрыша' })
     }

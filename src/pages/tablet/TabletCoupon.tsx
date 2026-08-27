@@ -128,7 +128,7 @@ export const TabletCoupon: FC = () => {
           <div className="absolute right-3 top-3 text-6xl drop-shadow-lg">{won.emoji}</div>
           <div className="absolute bottom-3 left-4 right-4">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-white/80">
-              {won.organization_name}{won.point_name ? ` · ${won.point_name}` : ''}
+              {won.organization_name}
             </div>
             <div className="text-lg font-bold leading-tight text-white">{won.title}</div>
           </div>
