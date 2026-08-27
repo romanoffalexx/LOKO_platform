@@ -55,18 +55,33 @@ app.set('trust proxy', 1)
 
 // ─── Session (connect-pg-simple, PostgreSQL) ─────────────────
 const PgStore = ConnectPgSimple(session)
+const sessionMaxAge = (Number(process.env.SESSION_MAX_AGE_HOURS) || 12) * 3600 * 1000
+
 app.use(session({
   store: new PgStore({ pool, tableName: 'session' }),
   secret: process.env.SESSION_SECRET || 'loko_dev_secret_change_me',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: (Number(process.env.SESSION_MAX_AGE_HOURS) || 12) * 3600 * 1000,  // время жизни сессии (по умолчанию 12 часов)
+    maxAge: sessionMaxAge,
     httpOnly: true,
-    secure: process.env.FRONTEND_URL?.startsWith('https'),  // secure только при HTTPS
+    secure: process.env.FRONTEND_URL?.startsWith('https'),
     sameSite: 'lax',
   }
 }))
+
+// Продлеваем сессию при активности пользователя (скользящий срок)
+app.use((req, res, next) => {
+  if (req.session?.userId && req.session?.cookie) {
+    // Обновляем expire в БД и cookie при каждом запросе
+    req.session.cookie.maxAge = sessionMaxAge
+    // Touch сессии в БД (connect-pg-simple поддерживает touch)
+    if (req.sessionStore?.touch) {
+      req.sessionStore.touch(req.sessionID, req.session, () => {})
+    }
+  }
+  next()
+})
 
 // ─── Health ──────────────────────────────────────────────────
 app.get('/api/health', async (_req, res) => {

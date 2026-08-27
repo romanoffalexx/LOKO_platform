@@ -35,6 +35,10 @@ export const TabletRegister: FC = () => {
     const input = e.target
     const raw = input.value
     const cursorPos = input.selectionStart ?? raw.length
+    const prevLen = phoneRaw.length
+
+    // Определяем: было ли удаление (строка стала короче или курсор не в конце)
+    const isDeletion = raw.length < prevLen || cursorPos < raw.length
 
     // Считаем цифры до позиции курсора (для отслеживания позиции)
     let digitsBeforeCursor = 0
@@ -61,16 +65,33 @@ export const TabletRegister: FC = () => {
     const formatted = formatPhoneDisplay(allDigits)
     setPhoneRaw(formatted)
 
-    // Вычисляем новую позицию курсора:
-    // Находим позицию N-й цифры в отформатированной строке
-    let newPos = 0
-    let digitCount = 0
-    while (newPos < formatted.length && digitCount < digitsBeforeCursor) {
-      if (/\d/.test(formatted[newPos])) digitCount++
-      newPos++
+    // Вычисляем новую позицию курсора
+    let newPos: number
+    if (isDeletion && digitsBeforeCursor > 0) {
+      // При удалении: курсор ставим ПОСЛЕ цифры, которая теперь на позиции N
+      // Но если перед курсором символ форматирования — переносим курсор перед ним
+      let pos = 0
+      let digitCount = 0
+      while (pos < formatted.length && digitCount < digitsBeforeCursor) {
+        if (/\d/.test(formatted[pos])) digitCount++
+        pos++
+      }
+      // Skip backwards past any formatting characters
+      while (pos > 3 && pos > 0 && !/\d/.test(formatted[pos - 1])) {
+        pos--
+      }
+      newPos = pos
+    } else {
+      // При вводе — обычная логика
+      let pos = 0
+      let digitCount = 0
+      while (pos < formatted.length && digitCount < digitsBeforeCursor) {
+        if (/\d/.test(formatted[pos])) digitCount++
+        pos++
+      }
+      if (digitsBeforeCursor >= allDigits.length) pos = formatted.length
+      newPos = pos
     }
-    // Если курсор был после всех цифр — ставим в конец
-    if (digitsBeforeCursor >= allDigits.length) newPos = formatted.length
 
     requestAnimationFrame(() => {
       input.setSelectionRange(newPos, newPos)
