@@ -39,7 +39,15 @@ organizationsRouter.get('/:id', async (req: Request, res: Response) => {
       [req.params.id],
     )
     if (rows.length === 0) return res.status(404).json({ error: 'Не найдено' })
-    res.json(rows[0])
+
+    // Получаем данные партнёра (email + пароль)
+    const { rows: partnerRows } = await pool.query(
+      `SELECT email, password_plain FROM users WHERE organization_id = $1 AND role = 'partner' AND is_active = true LIMIT 1`,
+      [req.params.id],
+    )
+    const partner = partnerRows[0] || null
+
+    res.json({ ...rows[0], partner_email: partner?.email || '', partner_password: partner?.password_plain || '' })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
@@ -73,9 +81,9 @@ organizationsRouter.post('/', async (req: Request, res: Response) => {
     if (email && password) {
       const hash = await bcrypt.hash(password, 12)
       await pool.query(
-        `INSERT INTO users (email, password_hash, role, name, organization_id)
-         VALUES ($1, $2, 'partner', $3, $4)`,
-        [email, hash, name, org.id]
+        `INSERT INTO users (email, password_hash, role, name, organization_id, must_change_pwd, password_plain)
+         VALUES ($1, $2, 'partner', $3, $4, false, $5)`,
+        [email, hash, name, org.id, password]
       )
 
       // Отправляем письмо с учётными данными
@@ -122,15 +130,56 @@ organizationsRouter.patch('/:id', async (req: Request, res: Response) => {
   try {
     const allowed = ['name','address','zone','logo','logo_color','phone','email','has_tablet','participates_in_offers','description','working_hours','category','services','logo_url','status']
     const fields = Object.entries(req.body).filter(([k]) => allowed.includes(k))
-    if (fields.length === 0) return res.status(400).json({ error: 'Нет валидных полей для обновления' })
-    const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
-    const vals = fields.map(([, v]) => v)
-    const { rows } = await pool.query(
-      `UPDATE organizations SET ${set} WHERE id = $${fields.length + 1} RETURNING *`,
-      [...vals, req.params.id],
+    const hasPartnerFields = req.body.partner_password || req.body.partner_email
+    if (fields.length === 0 && !hasPartnerFields) return res.status(400).json({ error: 'Нет валидных полей для обновления' })
+
+    // Обновляем поля организации
+    if (fields.length > 0) {
+      const set = fields.map(([k], i) => `${k} = $${i + 1}`).join(', ')
+      const vals = fields.map(([, v]) => v)
+      const { rows } = await pool.query(
+        `UPDATE organizations SET ${set} WHERE id = $${fields.length + 1} RETURNING *`,
+        [...vals, req.params.id],
+      )
+      if (rows.length === 0) return res.status(404).json({ error: 'Не найдено' })
+    }
+
+    // Обновляем данные партнёра (email / пароль)
+    if (hasPartnerFields) {
+      const newEmail = req.body.partner_email || null
+      const newPwd = req.body.partner_password || null
+
+      if (newPwd && newEmail) {
+        const hash = await bcrypt.hash(newPwd, 12)
+        await pool.query(
+          `UPDATE users SET email = $1, password_hash = $2, password_plain = $3
+           WHERE organization_id = $4 AND role = 'partner' AND is_active = true`,
+          [newEmail, hash, newPwd, req.params.id],
+        )
+      } else if (newPwd) {
+        const hash = await bcrypt.hash(newPwd, 12)
+        await pool.query(
+          `UPDATE users SET password_hash = $1, password_plain = $2
+           WHERE organization_id = $3 AND role = 'partner' AND is_active = true`,
+          [hash, newPwd, req.params.id],
+        )
+      } else if (newEmail) {
+        await pool.query(
+          `UPDATE users SET email = $1
+           WHERE organization_id = $2 AND role = 'partner' AND is_active = true`,
+          [newEmail, req.params.id],
+        )
+      }
+    }
+
+    // Возвращаем обновлённую организацию + данные партнёра
+    const { rows } = await pool.query(`SELECT * FROM organizations WHERE id = $1`, [req.params.id])
+    const { rows: partnerRows } = await pool.query(
+      `SELECT email, password_plain FROM users WHERE organization_id = $1 AND role = 'partner' AND is_active = true LIMIT 1`,
+      [req.params.id],
     )
-    if (rows.length === 0) return res.status(404).json({ error: 'Не найдено' })
-    res.json(rows[0])
+    const partner = partnerRows[0] || null
+    res.json({ ...rows[0], partner_email: partner?.email || '', partner_password: partner?.password_plain || '' })
   } catch (err: any) {
     res.status(400).json({ error: err.message })
   }

@@ -1,4 +1,4 @@
-import { type FC, useState } from 'react'
+import { type FC, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { participantsApi } from '@/lib/api'
@@ -14,33 +14,70 @@ function normalizePhone(raw: string): string {
 
 export const TabletRegister: FC = () => {
   const nav = useNavigate()
+  const inputRef = useRef<HTMLInputElement>(null)
   const [phoneRaw, setPhoneRaw] = useState('+7 ')
   const [name, setName] = useState('')
   const [existing, setExisting] = useState<{ id: string; name: string } | null>(null)
   const [searching, setSearching] = useState(false)
 
-  const onPhone = (v: string) => {
-    // Показываем ровно то, что ввели; если стёрли префикс — восстанавливаем +7
-    let val = v
-    if (!val.trim().startsWith('+7')) {
-      val = '+7 ' + val.replace(/\D/g, '')
+  const formatPhoneDisplay = (digits: string): string => {
+    // digits — до 11 цифр, первая = '7'
+    const area = digits.slice(1) // до 10 цифр после 7
+    let f = '+7'
+    if (area.length > 0) f += ' (' + area.slice(0, 3)
+    if (area.length >= 3) f += ') ' + area.slice(3, 6)
+    if (area.length >= 6) f += ' ' + area.slice(6, 8)
+    if (area.length >= 8) f += ' ' + area.slice(8, 10)
+    return f
+  }
+
+  const onPhone = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target
+    const raw = input.value
+    const cursorPos = input.selectionStart ?? raw.length
+
+    // Считаем цифры до позиции курсора (для отслеживания позиции)
+    let digitsBeforeCursor = 0
+    for (let i = 0; i < cursorPos && i < raw.length; i++) {
+      if (/\d/.test(raw[i])) digitsBeforeCursor++
     }
-    // Ограничение: после +7 только 10 цифр (итого +7 XXXXXXXXXX)
-    const digits = val.replace(/\D/g, '')
-    if (digits.length > 11) {
-      val = '+7 ' + digits.slice(1, 11)
-    } else {
-      val = '+7 ' + digits.slice(1)
+
+    // Извлекаем все цифры из ввода
+    let allDigits = raw.replace(/\D/g, '')
+
+    // Нормализуем код страны
+    if (allDigits.length === 0) {
+      allDigits = '7'
+    } else if (allDigits[0] === '8') {
+      allDigits = '7' + allDigits.slice(1)
+    } else if (allDigits[0] !== '7') {
+      allDigits = '7' + allDigits
     }
-    // Форматирование: +7 (xxx) xxx xx xx
-    const d = digits.slice(1) // убираем первую 7 или 8
-    let formatted = '+7'
-    if (d.length > 0) formatted += ' (' + d.slice(0, 3)
-    if (d.length >= 3) formatted += ') ' + d.slice(3, 6)
-    if (d.length >= 6) formatted += ' ' + d.slice(6, 8)
-    if (d.length >= 8) formatted += ' ' + d.slice(8, 10)
+
+    // Ограничение: 7 + 10 цифр = 11
+    if (allDigits.length > 11) allDigits = allDigits.slice(0, 11)
+
+    // Форматируем для отображения
+    const formatted = formatPhoneDisplay(allDigits)
     setPhoneRaw(formatted)
-    const norm = normalizePhone(val)
+
+    // Вычисляем новую позицию курсора:
+    // Находим позицию N-й цифры в отформатированной строке
+    let newPos = 0
+    let digitCount = 0
+    while (newPos < formatted.length && digitCount < digitsBeforeCursor) {
+      if (/\d/.test(formatted[newPos])) digitCount++
+      newPos++
+    }
+    // Если курсор был после всех цифр — ставим в конец
+    if (digitsBeforeCursor >= allDigits.length) newPos = formatted.length
+
+    requestAnimationFrame(() => {
+      input.setSelectionRange(newPos, newPos)
+    })
+
+    // Поиск участника если номер полный
+    const norm = normalizePhone(formatted)
     if (norm.length >= 12) {
       setSearching(true)
       participantsApi.list({ phone: norm.slice(-10), limit: 1 })
@@ -55,6 +92,17 @@ export const TabletRegister: FC = () => {
         .finally(() => setSearching(false))
     } else {
       setExisting(null)
+    }
+  }
+
+  const onPhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Запрещаем удалять префикс +7
+    if (e.key === 'Backspace') {
+      const input = e.currentTarget
+      const pos = input.selectionStart ?? 0
+      if (pos <= 3) {
+        e.preventDefault()
+      }
     }
   }
 
@@ -97,9 +145,11 @@ export const TabletRegister: FC = () => {
           <div className="relative mt-1.5">
             <IconPhone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-loko-text-muted" />
             <input
+              ref={inputRef}
               type="tel"
               value={phoneRaw}
-              onChange={e => onPhone(e.target.value)}
+              onChange={onPhone}
+              onKeyDown={onPhoneKeyDown}
               placeholder="+7 (___) ___-__-__"
               className="input pl-11 font-mono text-lg tracking-wider"
               inputMode="tel"

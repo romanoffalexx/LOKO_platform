@@ -48,8 +48,10 @@ export function AdminOrganizationDetail() {
   const [editingOfferId, setEditingOfferId] = useState<string | null>(null)
   const [showEditOrg, setShowEditOrg] = useState(false)
   const [savingOrg, setSavingOrg] = useState(false)
+  const [showPartnerPwd, setShowPartnerPwd] = useState(false)
   const [editForm, setEditForm] = useState({
     name: '', address: '', phone: '', email: '', category: '', description: '', working_hours: '', logo: '', logo_color: '#A855F7',
+    partner_email: '', partner_password: '',
   })
   const [pointForm, setPointForm] = useState({
     name: '', address: '', phone: '', contact_name: '', email: '', working_hours: '09:00-21:00', has_tablet: false, zone: '',
@@ -89,10 +91,12 @@ export function AdminOrganizationDetail() {
       email: org.email || '', category: org.category || '',
       description: org.description || '', working_hours: org.working_hours || '',
       logo: org.logo || '', logo_color: org.logo_color || '#A855F7',
+      partner_email: org.partner_email || '', partner_password: org.partner_password || '',
     })
     setShowEditOrg(true)
     setShowPointForm(false)
     setShowOfferForm(false)
+    setShowPartnerPwd(false)
   }
 
   const handleEditOrg = async () => {
@@ -100,7 +104,9 @@ export function AdminOrganizationDetail() {
     setSavingOrg(true)
     try {
       const updated = await organizationsApi.update(id, editForm)
-      setOrg({ ...org, ...updated })
+      // Перезагружаем данные организации с информацией о партнёре
+      const orgData = await organizationsApi.get(id)
+      setOrg(orgData)
       setShowEditOrg(false)
     } catch (err: any) {
       alert(err.message)
@@ -367,6 +373,17 @@ export function AdminOrganizationDetail() {
                 <span className="inline-flex items-center gap-1.5"><IconPhone size={14} />{org.phone}</span>
                 <span className="inline-flex items-center gap-1.5"><IconMail size={14} />{org.email}</span>
               </div>
+              {org.partner_email && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-loko-text-muted">
+                  <span className="badge badge-violet">Партнёр</span>
+                  <span>{org.partner_email}</span>
+                  {org.partner_password && (
+                    <button onClick={() => setShowPartnerPwd(v => !v)} className="text-loko-violet hover:underline">
+                      {showPartnerPwd ? org.partner_password : '••••••••'}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -451,6 +468,39 @@ export function AdminOrganizationDetail() {
             <label className="block text-xs text-loko-text-muted mb-1">Описание</label>
             <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} className="input w-full min-h-[60px] resize-y" />
           </div>
+
+          {/* Данные партнёра */}
+          <div className="rounded-xl border border-loko-bg-border bg-loko-bg-base/40 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-loko-text-primary">
+              <span className="badge badge-violet">Партнёр</span>
+              <span>Учётные данные</span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="block text-xs text-loko-text-muted mb-1">Email партнёра</label>
+                <input type="email" value={editForm.partner_email} onChange={e => setEditForm(p => ({ ...p, partner_email: e.target.value }))} className="input w-full" placeholder="partner@example.com" />
+              </div>
+              <div>
+                <label className="block text-xs text-loko-text-muted mb-1">Пароль</label>
+                <div className="flex gap-2">
+                  <input
+                    type={showPartnerPwd ? 'text' : 'password'}
+                    value={editForm.partner_password}
+                    onChange={e => setEditForm(p => ({ ...p, partner_password: e.target.value }))}
+                    className="input flex-1 font-mono"
+                    placeholder="••••••••"
+                  />
+                  <button type="button" onClick={() => setShowPartnerPwd(v => !v)} className="btn-ghost px-3 text-xs">
+                    {showPartnerPwd ? 'Скрыть' : 'Показать'}
+                  </button>
+                  <button type="button" onClick={() => setEditForm(p => ({ ...p, partner_password: genPassword() }))} className="btn-ghost px-3 text-xs">
+                    Новый
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
             <button onClick={handleEditOrg} disabled={savingOrg || !editForm.name || !editForm.address} className="btn-brand disabled:opacity-50">
               {savingOrg ? 'Сохранение…' : 'Сохранить'}

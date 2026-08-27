@@ -258,13 +258,18 @@ CREATE TABLE IF NOT EXISTS geo_zones (
 
 -- Уведомления
 CREATE TABLE IF NOT EXISTS notifications (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  channel     VARCHAR(10) NOT NULL CHECK (channel IN ('telegram','email','system')),
-  event       VARCHAR(500) NOT NULL,
-  recipient   VARCHAR(255) NOT NULL,
-  status      VARCHAR(20) DEFAULT 'pending'
-              CHECK (status IN ('delivered','pending','failed')),
-  created_at  TIMESTAMPTZ DEFAULT now()
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel         VARCHAR(10) NOT NULL CHECK (channel IN ('telegram','email','system')),
+  event           VARCHAR(500) NOT NULL,
+  recipient       VARCHAR(255) NOT NULL,
+  title           VARCHAR(255) DEFAULT '',
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  is_read         BOOLEAN DEFAULT false,
+  meta            JSONB DEFAULT '{}',
+  status          VARCHAR(20) DEFAULT 'pending'
+                  CHECK (status IN ('delivered','pending','failed')),
+  created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 -- Экраны/мониторы
@@ -301,3 +306,16 @@ CREATE INDEX IF NOT EXISTS idx_tablets_org         ON tablets(organization_id);
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;
 UPDATE notifications SET channel = 'telegram' WHERE channel = 'max';
 ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel IN ('telegram','email','system'));
+
+-- Миграция users: хранение пароля в открытом виде (для отображения админу)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_plain VARCHAR(255) DEFAULT '';
+
+-- Миграция notifications: новые поля для ЛК (бэклог)
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(255) DEFAULT '';
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT false;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS meta JSONB DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_org ON notifications(organization_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(is_read) WHERE is_read = false;
