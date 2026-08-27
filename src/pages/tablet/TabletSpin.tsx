@@ -253,6 +253,7 @@ export const TabletSpin: FC = () => {
         ...winner,
         description: result?.offer?.description ?? '',
         organization_id: result?.offer?.organization_id ?? (winner as any).organization_id,
+        organization_name: result?.offer?.org_name ?? (winner as any).organization_name,
         ends_at: result?.offer?.ends_at ?? (winner as any).ends_at,
         coupon_code: result?.coupon_code,
         point_name: result?.point_name,
