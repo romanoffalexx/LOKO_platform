@@ -66,10 +66,19 @@ app.use(session({
   cookie: {
     maxAge: sessionMaxAge,
     httpOnly: true,
-    secure: process.env.FRONTEND_URL?.startsWith('https'),
+    secure: false, // определяется динамически ниже
     sameSite: 'lax',
   }
 }))
+
+// Динамический secure для cookie: HTTPS → secure, HTTP → не secure
+// Работает благодаря trust proxy (X-Forwarded-Proto от Dokploy/Traefik)
+app.use((req, _res, next) => {
+  if (req.session) {
+    req.session.cookie.secure = req.secure || req.headers['x-forwarded-proto'] === 'https'
+  }
+  next()
+})
 
 // Продлеваем сессию при активности пользователя (скользящий срок)
 app.use((req, res, next) => {
