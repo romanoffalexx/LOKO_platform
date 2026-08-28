@@ -38,6 +38,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   ...(process.env.VITE_API_URL ? [process.env.VITE_API_URL.replace('/api', '')] : []),
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+  ...(process.env.FRONTEND_URL_OLD ? [process.env.FRONTEND_URL_OLD] : []),
 ]
 app.use(cors({
   origin: (origin, cb) => {
