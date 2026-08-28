@@ -2,6 +2,7 @@ import { useState, type FC, type FormEvent } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
 import { YaokoLogo } from '@/components/brand/YaokoLogo'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 
 export const LoginPage: FC = () => {
   const { login, user } = useAuth()
@@ -74,12 +75,10 @@ export const LoginPage: FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Пароль</label>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="input w-full"
               placeholder="••••••••"
             />
           </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { tabletAuthApi } from '@/lib/api'
 import { motion } from 'framer-motion'
 import { IconLogo } from '@/components/ui/icons'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 
 export const TabletLogin: FC = () => {
   const navigate = useNavigate()
@@ -62,12 +63,11 @@ export const TabletLogin: FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Пароль</label>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="input w-full text-center text-lg"
+              className="text-center text-lg"
               placeholder="••••••••••••"
             />
           </div>

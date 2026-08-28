@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { YaokoLogo } from '@/components/brand/YaokoLogo'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 
 export const ChangePasswordPage: FC = () => {
   const { user, refresh } = useAuth()
@@ -65,36 +66,30 @@ export const ChangePasswordPage: FC = () => {
           {showOld && (
             <div>
               <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Текущий пароль</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={oldPassword}
                 onChange={e => setOldPassword(e.target.value)}
                 required
-                className="input w-full"
               />
             </div>
           )}
 
           <div>
             <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Новый пароль</label>
-            <input
-              type="password"
+            <PasswordInput
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               required
-              className="input w-full"
               placeholder="Минимум 6 символов"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Подтвердите пароль</label>
-            <input
-              type="password"
+            <PasswordInput
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
-              className="input w-full"
             />
           </div>
 

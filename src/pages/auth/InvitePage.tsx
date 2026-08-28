@@ -2,6 +2,7 @@ import { useState, type FC, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { authApi } from '@/lib/api'
 import { YaokoLogo } from '@/components/brand/YaokoLogo'
+import { PasswordInput } from '@/components/ui/PasswordInput'
 
 export const InvitePage: FC = () => {
   const { token } = useParams<{ token: string }>()
@@ -93,24 +94,20 @@ export const InvitePage: FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Пароль</label>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              className="input w-full"
               placeholder="Минимум 6 символов"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-loko-text-secondary mb-1.5">Подтвердите пароль</label>
-            <input
-              type="password"
+            <PasswordInput
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
-              className="input w-full"
               placeholder="Повторите пароль"
             />
           </div>
