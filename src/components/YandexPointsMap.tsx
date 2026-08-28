@@ -14,7 +14,28 @@ declare global {
 }
 
 /**
+ * Геокодирование через HTTP Geocoder API (отдельный ключ).
+ * Возвращает [lat, lng] или null.
+ */
+async function geocodeAddress(address: string, apiKey: string): Promise<[number, number] | null> {
+  try {
+    const url = `https://geocode-maps.yandex.ru/1.x/?geocode=${encodeURIComponent(address)}&format=json&apikey=${encodeURIComponent(apiKey)}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const data = await res.json()
+    const pos = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos
+    if (!pos) return null
+    const [lng, lat] = pos.split(' ').map(Number)
+    return [lat, lng]
+  } catch {
+    return null
+  }
+}
+
+/**
  * Карта Яндекс с маркерами точек организации.
+ * - JavaScript API key — для отображения карты
+ * - Geocoder API key — для геокодирования адресов (HTTP)
  * Если адрес не содержит город — подразумевается Краснодар.
  */
 export function YandexPointsMap({ points }: { points: Point[] }) {
@@ -22,7 +43,10 @@ export function YandexPointsMap({ points }: { points: Point[] }) {
   const [mapReady, setMapReady] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Загружаем API Яндекса один раз
+  const jsApiKey = import.meta.env.VITE_YANDEX_MAPS_KEY || 'none'
+  const geocoderApiKey = import.meta.env.VITE_YANDEX_MAPS_GEOCODER_KEY || ''
+
+  // Загружаем JavaScript API Яндекса один раз
   useEffect(() => {
     if (window.ymaps) {
       setMapReady(true)
@@ -30,20 +54,17 @@ export function YandexPointsMap({ points }: { points: Point[] }) {
     }
 
     const script = document.createElement('script')
-    script.src = 'https://api-maps.yandex.ru/2.1/?apikey=none&lang=ru_RU'
+    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${jsApiKey}&lang=ru_RU`
     script.async = true
     script.onload = () => {
       window.ymaps.ready(() => setMapReady(true))
     }
     document.head.appendChild(script)
-  }, [])
+  }, [jsApiKey])
 
   // Инициализируем карту и размещаем маркеры
   useEffect(() => {
-    if (!mapReady || !mapRef.current || points.length === 0) {
-      setLoading(false)
-      return
-    }
+    if (!mapReady || !mapRef.current) return
 
     const ymaps = window.ymaps
     const map = new ymaps.Map(mapRef.current, {
@@ -54,17 +75,31 @@ export function YandexPointsMap({ points }: { points: Point[] }) {
 
     let placedCount = 0
 
-    points.forEach((point) => {
-      // Если адрес не содержит город — добавляем Краснодар
-      const fullAddress = /краснодар|москва|санкт/i.test(point.address)
-        ? point.address
-        : `Краснодар, ${point.address}`
+    const placeMarkers = async () => {
+      for (const point of points) {
+        // Если адрес не содержит город — добавляем Краснодар
+        const fullAddress = /краснодар|москва|санкт/i.test(point.address)
+          ? point.address
+          : `Краснодар, ${point.address}`
 
-      ymaps.geocode(fullAddress).then((res: any) => {
-        const coords = res.geoObjects.get(0)?.geometry?.getCoordinates()
-        if (coords) {
+        // Геокодирование через HTTP API (отдельный ключ)
+        const coords = geocoderApiKey
+          ? await geocodeAddress(fullAddress, geocoderApiKey)
+          : null
+
+        // Fallback: если нет ключа геокодера — используем встроенный ymaps.geocode
+        let finalCoords = coords
+        if (!finalCoords && !geocoderApiKey) {
+          try {
+            const res = await ymaps.geocode(fullAddress)
+            const c = res.geoObjects.get(0)?.geometry?.getCoordinates()
+            if (c) finalCoords = c
+          } catch { /* skip */ }
+        }
+
+        if (finalCoords) {
           const placemark = new ymaps.Placemark(
-            coords,
+            finalCoords,
             {
               balloonContentHeader: point.name,
               balloonContentBody: point.address,
@@ -77,31 +112,21 @@ export function YandexPointsMap({ points }: { points: Point[] }) {
           map.geoObjects.add(placemark)
           placedCount++
         }
-      }).catch(() => {
-        // geocoding failed, skip
-      })
-    })
+      }
 
-    // Центрируем карту по маркерам после гекодинга
-    setTimeout(() => {
+      // Центрируем карту по маркерам
       if (map.geoObjects.getLength() > 0) {
         map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 40 })
       }
       setLoading(false)
-    }, 2000)
+    }
+
+    placeMarkers()
 
     return () => {
       map.destroy()
     }
-  }, [mapReady, points])
-
-  if (points.length === 0) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-loko-text-muted">
-        Нет точек для отображения на карте
-      </div>
-    )
-  }
+  }, [mapReady, points, geocoderApiKey])
 
   return (
     <div className="relative h-full w-full">

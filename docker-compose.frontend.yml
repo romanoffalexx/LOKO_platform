@@ -9,6 +9,8 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         - VITE_API_URL=/api
+        - VITE_YANDEX_MAPS_KEY=${VITE_YANDEX_MAPS_KEY}
+        - VITE_YANDEX_MAPS_GEOCODER_KEY=${VITE_YANDEX_MAPS_GEOCODER_KEY}
     container_name: loko-frontend
     restart: unless-stopped
     expose:
