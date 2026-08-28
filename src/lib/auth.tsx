@@ -35,9 +35,13 @@ export function useAuth() {
 
 export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Не блокируем рендер для планшетных маршрутов (они используют sessionStorage)
+  const isTabletRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/tablet')
+  const [loading, setLoading] = useState(!isTabletRoute)
 
   const refresh = useCallback(async () => {
+    // Для планшетных маршрутов не делаем серверную проверку
+    if (isTabletRoute) return
     try {
       const data = await authApi.me()
       setUser(data)
@@ -46,7 +50,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isTabletRoute])
 
   useEffect(() => {
     refresh()

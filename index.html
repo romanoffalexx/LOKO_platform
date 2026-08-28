@@ -14,7 +14,17 @@
     />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Мгновенный спиннер пока грузится JS -->
+      <style>
+        .loko-preloader{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0A0414}
+        .loko-preloader-spinner{width:40px;height:40px;border:3px solid rgba(168,85,247,0.2);border-top-color:#A855F7;border-radius:50%;animation:loko-spin 0.8s linear infinite}
+        @keyframes loko-spin{to{transform:rotate(360deg)}}
+      </style>
+      <div class="loko-preloader">
+        <div class="loko-preloader-spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
