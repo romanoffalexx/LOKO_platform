@@ -5,6 +5,39 @@ import { requireAdmin, requireAuth } from '../middleware/auth.js'
 
 export const pointsRouter = Router()
 
+/**
+ * Геокодирование адреса через Yandex Geocoder API.
+ * Возвращает { latitude, longitude } или null.
+ */
+async function geocodeAddress(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  const apiKey = process.env.YANDEX_MAPS_GEOCODER_KEY
+  if (!apiKey) {
+    console.warn('[Geocode] YANDEX_MAPS_GEOCODER_KEY не задан')
+    return null
+  }
+
+  try {
+    // Если адрес не содержит город — добавляем Краснодар
+    const fullAddress = /краснодар|москва|санкт/i.test(address)
+      ? address
+      : `Краснодар, ${address}`
+
+    const url = `https://geocode-maps.yandex.ru/1.x/?geocode=${encodeURIComponent(fullAddress)}&format=json&apikey=${encodeURIComponent(apiKey)}`
+    const res = await fetch(url)
+    if (!res.ok) return null
+
+    const data: any = await res.json()
+    const pos = data?.response?.GeoObjectCollection?.featureMember?.[0]?.GeoObject?.Point?.pos
+    if (!pos) return null
+
+    const [lng, lat] = pos.split(' ').map(Number)
+    return { latitude: lat, longitude: lng }
+  } catch (err: any) {
+    console.error('[Geocode] Ошибка:', err.message)
+    return null
+  }
+}
+
 // ── GET /api/points ───────────────────────────────────────
 pointsRouter.get('/', requireAuth, async (req, res) => {
   try {
@@ -38,11 +71,15 @@ pointsRouter.post('/', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Обязательные поля: organization_id, name, address' })
     }
 
+    // Геокодирование адреса → координаты
+    const coords = await geocodeAddress(address)
+
     const result = await pool.query(
-      `INSERT INTO points (organization_id, name, address, phone, contact_name, email, working_hours, has_tablet, zone)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      `INSERT INTO points (organization_id, name, address, phone, contact_name, email, working_hours, has_tablet, zone, latitude, longitude)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING *`,
-      [organization_id, name, address, phone || '', contact_name || '', email || '', working_hours || '09:00-21:00', has_tablet || false, zone || '']
+      [organization_id, name, address, phone || '', contact_name || '', email || '', working_hours || '09:00-21:00', has_tablet || false, zone || '',
+       coords?.latitude ?? null, coords?.longitude ?? null]
     )
 
     const point = result.rows[0]
@@ -68,10 +105,29 @@ pointsRouter.patch('/:id', requireAdmin, async (req, res) => {
     const values: any[] = []
     let idx = 1
 
+    // Проверяем, изменился ли адрес — нужно перегеокодировать
+    let addressChanged = false
+    if (req.body.address) {
+      const current = await pool.query('SELECT address FROM points WHERE id = $1', [req.params.id])
+      if (current.rows[0] && current.rows[0].address !== req.body.address) {
+        addressChanged = true
+      }
+    }
+
     for (const [key, value] of Object.entries(req.body)) {
       if (allowed.includes(key)) {
         updates.push(`${key} = $${idx++}`)
         values.push(value)
+      }
+    }
+
+    // Если адрес изменился — геокодируем и добавляем координаты
+    if (addressChanged && req.body.address) {
+      const coords = await geocodeAddress(req.body.address)
+      if (coords) {
+        updates.push(`latitude = $${idx++}`)
+        updates.push(`longitude = $${idx++}`)
+        values.push(coords.latitude, coords.longitude)
       }
     }
 

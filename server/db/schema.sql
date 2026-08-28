@@ -68,6 +68,10 @@ CREATE INDEX IF NOT EXISTS idx_points_org ON points(organization_id);
 -- Миграция: зона точки (справочник zones)
 ALTER TABLE points ADD COLUMN IF NOT EXISTS zone VARCHAR(100) DEFAULT '';
 
+-- Миграция: координаты точки для карты (геокодирование на бэкенде)
+ALTER TABLE points ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 7);
+ALTER TABLE points ADD COLUMN IF NOT EXISTS longitude DECIMAL(10, 7);
+
 -- Акции (предложения от организаций)
 CREATE TABLE IF NOT EXISTS offers (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
