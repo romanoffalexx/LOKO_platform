@@ -81,7 +81,7 @@ tabletAuthRouter.post('/check-participation', async (req, res) => {
     }
 
     const existing = await pool.query(
-      'SELECT id FROM spin_participations WHERE phone = $1 AND point_id = $2',
+      'SELECT id FROM spin_participations WHERE phone = $1 AND point_id = $2 AND created_at >= CURRENT_DATE',
       [phone, req.session.pointId]
     )
 

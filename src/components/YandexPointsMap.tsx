@@ -17,13 +17,12 @@ declare global {
 
 /**
  * Карта Яндекс с маркерами точек организации.
- * ВРЕМЕННОЕ РЕШЕНИЕ: использует ymaps.geocode() для геокодирования на клиенте.
- * TODO: Переключить на серверное геокодирование, когда заработает HTTP Geocoder API ключ.
+ * Фронтенд только отображает готовые координаты из БД.
+ * Геокодирование происходит на бэкенде при создании/обновлении точки.
  */
 export function YandexPointsMap({ points }: { points: Point[] }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [mapReady, setMapReady] = useState(false)
-  const [loading, setLoading] = useState(true)
   const apiKey = import.meta.env.VITE_YANDEX_MAPS_KEY || ''
 
   // Загрузка JavaScript API Яндекса
@@ -53,52 +52,28 @@ export function YandexPointsMap({ points }: { points: Point[] }) {
       controls: ['zoomControl', 'typeSelector'],
     })
 
-    const placeMarkers = async () => {
-      for (const point of points) {
-        let coords: [number, number] | null = null
+    // Фильтруем только точки с валидными координатами
+    const validPoints = points.filter(p => p.latitude !== null && p.longitude !== null)
 
-        // Если есть готовые координаты — используем их
-        if (point.latitude && point.longitude) {
-          coords = [point.latitude, point.longitude]
-        } else {
-          // Иначе геокодируем адрес через ymaps.geocode()
-          try {
-            const fullAddress = /краснодар|москва|санкт/i.test(point.address)
-              ? point.address
-              : `Краснодар, ${point.address}`
-
-            const res = await ymaps.geocode(fullAddress)
-            const c = res.geoObjects.get(0)?.geometry?.getCoordinates()
-            if (c) coords = c
-          } catch {
-            // геокодинг не удался, пропускаем
-          }
+    validPoints.forEach(point => {
+      const placemark = new ymaps.Placemark(
+        [point.latitude!, point.longitude!],
+        {
+          balloonContentHeader: point.name,
+          balloonContentBody: point.address,
+          hintContent: point.name,
+        },
+        {
+          preset: point.is_active ? 'islands#greenDotIcon' : 'islands#grayDotIcon',
         }
+      )
+      map.geoObjects.add(placemark)
+    })
 
-        if (coords) {
-          const placemark = new ymaps.Placemark(
-            coords,
-            {
-              balloonContentHeader: point.name,
-              balloonContentBody: point.address,
-              hintContent: point.name,
-            },
-            {
-              preset: point.is_active ? 'islands#violetDotIcon' : 'islands#grayDotIcon',
-            }
-          )
-          map.geoObjects.add(placemark)
-        }
-      }
-
-      // Автоматическое центрирование по всем маркерам
-      if (map.geoObjects.getLength() > 0) {
-        map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 40 })
-      }
-      setLoading(false)
+    // Автоматическое центрирование по всем маркерам
+    if (validPoints.length > 0) {
+      map.setBounds(map.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 40 })
     }
-
-    placeMarkers()
 
     return () => {
       map.destroy()
@@ -107,7 +82,7 @@ export function YandexPointsMap({ points }: { points: Point[] }) {
 
   return (
     <div className="relative h-full w-full" style={{ minHeight: 400 }}>
-      {loading && (
+      {!mapReady && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-loko-bg-base/60 text-sm text-loko-text-muted">
           Загрузка карты…
         </div>
