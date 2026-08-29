@@ -107,13 +107,15 @@ tabletAuthRouter.post('/spin', async (req, res) => {
       return res.status(400).json({ error: 'Введите имя и номер телефона' })
     }
 
-    // ── Проверка 1: Один розыгрыш на точку ──
+    // ── Проверка 1: Один розыгрыш на точку в сутки ──
     const participated = await pool.query(
-      'SELECT id FROM spin_participations WHERE phone = $1 AND point_id = $2',
+      `SELECT id FROM spin_participations 
+       WHERE phone = $1 AND point_id = $2 
+       AND created_at >= CURRENT_DATE`,
       [phone, pointId]
     )
     if (participated.rows.length > 0) {
-      return res.status(400).json({ error: 'Вы уже участвовали в розыгрыше на этой точке' })
+      return res.status(400).json({ error: 'Вы уже участвовали в розыгрыше на этой точке сегодня. Приходите завтра!' })
     }
 
     // ── Проверка 2: Активные акции для розыгрыша ──
