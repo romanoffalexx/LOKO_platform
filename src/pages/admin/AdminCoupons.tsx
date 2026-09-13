@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { couponsApi } from '@/lib/api'
 import { toCsv, downloadCsv } from '@/lib/csv'
-import { IconSearch, IconClock, IconDownload, IconClose } from '@/components/ui/icons'
+import { IconSearch, IconDownload, IconClose } from '@/components/ui/icons'
 
 export function AdminCoupons() {
   const [coupons, setCoupons] = useState<any[]>([])
@@ -153,7 +153,7 @@ export function AdminCoupons() {
             </div>
             <div className="md:col-span-1 text-xs text-loko-text-muted">{c.source_point || '—'}</div>
             <div className="md:col-span-1 text-xs text-loko-text-muted">
-              <div className="inline-flex items-center gap-1"><IconClock size={10} />{new Date(c.expires_at).toLocaleDateString('ru')}</div>
+              {new Date(c.expires_at).toLocaleDateString('ru', { day: '2-digit', month: '2-digit', year: '2-digit' })}
             </div>
             <div className="md:col-span-1">
               <span className={`badge ${

@@ -135,7 +135,7 @@ export function AdminParticipants() {
                   <span className="badge badge-neutral">—</span>
                 )}
               </div>
-              <div className="md:col-span-2 text-xs text-loko-text-muted">{new Date(p.created_at).toLocaleDateString('ru')}</div>
+              <div className="md:col-span-2 text-xs text-loko-text-muted">{new Date(p.created_at).toLocaleDateString('ru', { day: '2-digit', month: '2-digit', year: '2-digit' })}</div>
             </div>
           ))}
         </div>
