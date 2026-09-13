@@ -253,11 +253,11 @@ export function AdminMonitors() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filtered.map((s: any) => (
           <div key={s.id} className="card overflow-hidden">
-            <div className="relative h-32 bg-gradient-to-br from-loko-bg-elevated to-loko-bg-base">
+            <div className="relative h-36 bg-gradient-to-br from-loko-bg-elevated to-loko-bg-base">
               <div className="absolute inset-3 flex flex-col rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">{s.organization_name || 'Без организации'}</div>
                 {s.content && <div className="mt-1 text-sm font-semibold text-loko-text-primary">{s.content}</div>}
-                <div className="mt-auto flex h-12 items-center justify-center rounded-lg bg-gradient-brand px-3 text-center">
+                <div className="mt-2 flex h-12 items-center justify-center rounded-lg bg-gradient-brand px-3 text-center">
                   <span className="line-clamp-2 text-sm font-semibold text-white">{s.name}</span>
                 </div>
               </div>

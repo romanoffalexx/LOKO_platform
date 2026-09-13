@@ -20,6 +20,7 @@ services:
       - loko-uploads:/app/uploads
     networks:
       - loko_net
+      - dokploy-network
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 30s
@@ -31,6 +32,9 @@ networks:
   loko_net:
     name: loko_net
     driver: bridge
+  dokploy-network:
+    name: dokploy-network
+    external: true
 
 volumes:
   loko-uploads:
