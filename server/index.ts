@@ -13,7 +13,6 @@ import { participantsRouter } from './routes/participants.js'
 import { dashboardRouter } from './routes/dashboard.js'
 import { tabletsRouter } from './routes/tablets.js'
 import { leadsRouter } from './routes/leads.js'
-import { geoZonesRouter } from './routes/geoZones.js'
 import { notificationsRouter } from './routes/notifications.js'
 import { screensRouter } from './routes/screens.js'
 import { authRouter } from './routes/auth.js'
@@ -114,7 +113,6 @@ app.use('/api/participants',    requireAuth, participantsRouter)
 app.use('/api/dashboard',       requireAuth, dashboardRouter)
 app.use('/api/tablets',         requireAuth, tabletsRouter)
 app.use('/api/leads',           requireAuth, leadsRouter)
-app.use('/api/geo-zones',       requireAdmin, geoZonesRouter)
 app.use('/api/notifications',   requireAdmin, notificationsRouter)
 app.use('/api/screens',         requireAdmin, screensRouter)
 

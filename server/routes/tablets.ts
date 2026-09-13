@@ -89,7 +89,9 @@ tabletsRouter.post('/', async (req: Request, res: Response) => {
       // Отправляем письмо партнёру с данными для входа
       if (partnerEmail) {
         try {
-          const loginUrl = process.env.APP_URL || 'http://localhost:3000'
+          // FRONTEND_URL — канонический адрес фронта (задан в .env и проброшен в контейнер).
+          // Раньше здесь читался несуществующий APP_URL → ссылка уходила на localhost.
+          const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
           await sendEmail(
             partnerEmail,
             `[ЛОКО] Данные для входа планшета «${name}»`,

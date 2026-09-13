@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { screensApi, organizationsApi } from '@/lib/api'
-import { IconSearch, IconMonitor, IconPlus, IconCalendar, IconClose, IconTrash } from '@/components/ui/icons'
+import { IconSearch, IconMonitor, IconPlus, IconCalendar, IconClose, IconTrash, IconEdit } from '@/components/ui/icons'
 
 export function AdminMonitors() {
   const [screens, setScreens] = useState<any[]>([])
@@ -15,6 +15,12 @@ export function AdminMonitors() {
     starts_at: '', ends_at: '',
   })
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({
+    name: '', organization_id: '', point: '', content: '', status: 'active',
+    starts_at: '', ends_at: '',
+  })
+  const [updating, setUpdating] = useState(false)
 
   const reload = () => {
     setLoading(true)
@@ -52,6 +58,42 @@ export function AdminMonitors() {
       reload()
     } catch (err: any) {
       alert(err.message)
+    }
+  }
+
+  const startEdit = (screen: any) => {
+    setEditingId(screen.id)
+    setEditForm({
+      name: screen.name || '',
+      organization_id: screen.organization_id || '',
+      point: screen.point || '',
+      content: screen.content || '',
+      status: screen.status || 'active',
+      starts_at: screen.starts_at ? screen.starts_at.slice(0, 10) : '',
+      ends_at: screen.ends_at ? screen.ends_at.slice(0, 10) : '',
+    })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditForm({ name: '', organization_id: '', point: '', content: '', status: 'active', starts_at: '', ends_at: '' })
+  }
+
+  const handleUpdate = async () => {
+    if (!editingId || !editForm.name || !editForm.organization_id) return
+    setUpdating(true)
+    try {
+      await screensApi.update(editingId, {
+        ...editForm,
+        starts_at: editForm.starts_at || undefined,
+        ends_at: editForm.ends_at || undefined,
+      })
+      cancelEdit()
+      reload()
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -139,6 +181,59 @@ export function AdminMonitors() {
         </div>
       )}
 
+      {/* Форма редактирования монитора */}
+      {editingId && (
+        <div className="card mb-4 p-5 space-y-3 border-loko-pink/30">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-loko-text-primary">Редактирование монитора</h3>
+            <button onClick={cancelEdit} className="text-loko-text-muted hover:text-loko-text-primary"><IconClose size={18} /></button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Название *</label>
+              <input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Организация *</label>
+              <select value={editForm.organization_id} onChange={e => setEditForm(p => ({ ...p, organization_id: e.target.value }))} className="input w-full">
+                <option value="">Выберите…</option>
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Точка размещения</label>
+              <input value={editForm.point} onChange={e => setEditForm(p => ({ ...p, point: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Контент</label>
+              <input value={editForm.content} onChange={e => setEditForm(p => ({ ...p, content: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Статус</label>
+              <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className="input w-full">
+                <option value="active">Активен</option>
+                <option value="paused">Пауза</option>
+                <option value="error">Ошибка</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Дата начала</label>
+              <input type="date" value={editForm.starts_at} onChange={e => setEditForm(p => ({ ...p, starts_at: e.target.value }))} className="input w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-loko-text-muted mb-1">Дата окончания</label>
+              <input type="date" value={editForm.ends_at} onChange={e => setEditForm(p => ({ ...p, ends_at: e.target.value }))} className="input w-full" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleUpdate} disabled={updating} className="btn-brand disabled:opacity-50">
+              {updating ? 'Сохранение…' : 'Сохранить'}
+            </button>
+            <button onClick={cancelEdit} className="btn-ghost">Отмена</button>
+          </div>
+        </div>
+      )}
+
       {/* Счётчик */}
       <div className="mb-3 text-xs text-loko-text-muted">
         Показано {filtered.length} из {screens.length}
@@ -159,10 +254,12 @@ export function AdminMonitors() {
         {filtered.map((s: any) => (
           <div key={s.id} className="card overflow-hidden">
             <div className="relative h-32 bg-gradient-to-br from-loko-bg-elevated to-loko-bg-base">
-              <div className="absolute inset-3 rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-3">
+              <div className="absolute inset-3 flex flex-col rounded-2xl border border-loko-bg-border bg-loko-bg-base/40 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-loko-text-muted">{s.organization_name || 'Без организации'}</div>
-                <div className="mt-1 text-sm font-semibold text-loko-text-primary">{s.content || s.name}</div>
-                <div className="mt-2 h-12 rounded-lg bg-gradient-brand" />
+                {s.content && <div className="mt-1 text-sm font-semibold text-loko-text-primary">{s.content}</div>}
+                <div className="mt-auto flex h-12 items-center justify-center rounded-lg bg-gradient-brand px-3 text-center">
+                  <span className="line-clamp-2 text-sm font-semibold text-white">{s.name}</span>
+                </div>
               </div>
               <div className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl bg-loko-bg-base/70 text-loko-pink">
                 <IconMonitor size={16} />
@@ -170,10 +267,15 @@ export function AdminMonitors() {
             </div>
             <div className="space-y-2 p-4">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-loko-text-primary">{s.name} <span className="text-xs text-loko-text-muted">· {s.point}</span></div>
-                <button onClick={() => handleDelete(s.id)} className="text-loko-text-muted hover:text-loko-danger" aria-label="Удалить">
-                  <IconTrash size={14} />
-                </button>
+                <div className="truncate text-sm text-loko-text-primary">{s.point || 'Точка не указана'}</div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEdit(s)} className="text-loko-text-muted hover:text-loko-pink" aria-label="Редактировать">
+                    <IconEdit size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(s.id)} className="text-loko-text-muted hover:text-loko-danger" aria-label="Удалить">
+                    <IconTrash size={14} />
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-loko-text-muted">
                 <IconCalendar size={12} />{(s.starts_at ?? '').slice(0, 10)} → {(s.ends_at ?? '').slice(0, 10)}

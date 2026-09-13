@@ -62,7 +62,13 @@ authRouter.post('/logout', (req, res) => {
 })
 
 // ── GET /api/auth/me ──────────────────────────────────────
-authRouter.get('/me', requireAuth, async (req, res) => {
+// Проверка текущей сессии. Отсутствие сессии — штатная ситуация (гость),
+// а не ошибка: отдаём 200 с user=null, чтобы гостевая проверка не сыпала
+// красными 401 в консоль. Механизм сессии тот же, что и у остальных роутов.
+authRouter.get('/me', async (req, res) => {
+  if (!req.session?.userId) {
+    return res.json({ user: null })
+  }
   try {
     const result = await pool.query(
       `SELECT u.id, u.email, u.role, u.name, u.organization_id,
@@ -74,19 +80,21 @@ authRouter.get('/me', requireAuth, async (req, res) => {
       [req.session.userId]
     )
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Пользователь не найден' })
+      return res.json({ user: null })
     }
     const u = result.rows[0]
     res.json({
-      id: u.id,
-      email: u.email,
-      role: u.role,
-      name: u.name,
-      organization_id: u.organization_id,
-      organization_name: u.org_name,
-      must_change_pwd: u.must_change_pwd,
-      telegram_chat_id: u.telegram_chat_id,
-      telegram_username: u.telegram_username,
+      user: {
+        id: u.id,
+        email: u.email,
+        role: u.role,
+        name: u.name,
+        organization_id: u.organization_id,
+        organization_name: u.org_name,
+        must_change_pwd: u.must_change_pwd,
+        telegram_chat_id: u.telegram_chat_id,
+        telegram_username: u.telegram_username,
+      },
     })
   } catch (err: any) {
     console.error('[Auth] Me error:', err.message)

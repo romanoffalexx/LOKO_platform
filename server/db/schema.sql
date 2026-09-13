@@ -200,14 +200,19 @@ CREATE TABLE IF NOT EXISTS leads (
 ALTER TABLE leads
   ADD COLUMN IF NOT EXISTS source_point_id UUID REFERENCES points(id) ON DELETE SET NULL;
 
--- Один розыгрыш на точку (защита от повторного участия)
+-- Один розыгрыш на точку в сутки (защита от повторного участия в тот же день)
 CREATE TABLE IF NOT EXISTS spin_participations (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phone        VARCHAR(30) NOT NULL,
-  point_id     UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
-  created_at   TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(phone, point_id)
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone             VARCHAR(30) NOT NULL,
+  point_id          UUID NOT NULL REFERENCES points(id) ON DELETE CASCADE,
+  participation_date DATE DEFAULT CURRENT_DATE,
+  created_at        TIMESTAMPTZ DEFAULT now()
 );
+-- Миграция: удалить старое абсолютное ограничение UNIQUE(phone, point_id)
+ALTER TABLE spin_participations DROP CONSTRAINT IF EXISTS spin_participations_phone_point_id_key;
+-- Новое: один номер + одна точка + одна дата = раз в сутки на точке
+CREATE UNIQUE INDEX IF NOT EXISTS idx_spin_unique_per_day
+  ON spin_participations (phone, point_id, participation_date);
 CREATE INDEX IF NOT EXISTS idx_spin_part_phone ON spin_participations(phone);
 CREATE INDEX IF NOT EXISTS idx_spin_part_point ON spin_participations(point_id);
 
@@ -248,17 +253,6 @@ CREATE TABLE IF NOT EXISTS "session" (
   PRIMARY KEY (sid)
 );
 CREATE INDEX IF NOT EXISTS idx_session_expire ON "session" (expire);
-
--- Гео-зоны
-CREATE TABLE IF NOT EXISTS geo_zones (
-  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  city                VARCHAR(100) NOT NULL,
-  name                VARCHAR(100) NOT NULL,
-  sector              VARCHAR(10),
-  organizations_count INTEGER DEFAULT 0,
-  tablets_count       INTEGER DEFAULT 0,
-  offers_count        INTEGER DEFAULT 0
-);
 
 -- Уведомления
 CREATE TABLE IF NOT EXISTS notifications (
@@ -323,3 +317,7 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS meta JSONB DEFAULT '{}';
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_org ON notifications(organization_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(is_read) WHERE is_read = false;
+
+-- Мёртвый код: geo_zones — дубль справочника zones, таблица пустая,
+-- питала только демо-страницу «География». Справочник зон точек — zones.
+DROP TABLE IF EXISTS geo_zones;

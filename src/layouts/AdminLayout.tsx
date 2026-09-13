@@ -74,7 +74,6 @@ function useBreadcrumb() {
     points: 'Точки',
     tablets: 'Планшеты',
     monitors: 'Мониторы',
-    geography: 'География',
     requests: 'Заявки',
     notifications: 'Уведомления',
     settings: 'Настройки',

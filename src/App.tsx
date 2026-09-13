@@ -17,7 +17,6 @@ import { AdminCoupons } from '@/pages/admin/AdminCoupons'
 import { AdminPoints } from '@/pages/admin/AdminPoints'
 import { AdminTablets } from '@/pages/admin/AdminTablets'
 import { AdminMonitors } from '@/pages/admin/AdminMonitors'
-import { AdminGeography } from '@/pages/admin/AdminGeography'
 import { AdminRequests } from '@/pages/admin/AdminRequests'
 import { AdminNotifications } from '@/pages/admin/AdminNotifications'
 import { AdminSettings } from '@/pages/admin/AdminSettings'
@@ -66,7 +65,6 @@ export default function App() {
           <Route path="points" element={<AdminPoints />} />
           <Route path="tablets" element={<AdminTablets />} />
           <Route path="monitors" element={<AdminMonitors />} />
-          <Route path="geography" element={<AdminGeography />} />
           <Route path="requests" element={<AdminRequests />} />
           <Route path="notifications" element={<AdminNotifications />} />
           <Route path="settings" element={<AdminSettings />} />

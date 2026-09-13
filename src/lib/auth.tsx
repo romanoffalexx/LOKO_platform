@@ -43,8 +43,10 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     // Для планшетных маршрутов не делаем серверную проверку
     if (isTabletRoute) return
     try {
+      // /auth/me для гостя отдаёт 200 с user=null (не 401), поэтому
+      // отсутствие сессии — это тихий «гость», а не ошибка загрузки.
       const data = await authApi.me()
-      setUser(data)
+      setUser(data?.user ?? null)
     } catch {
       setUser(null)
     } finally {

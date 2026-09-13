@@ -165,21 +165,6 @@ export const leadsApi = {
     request<any>(`/leads/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 }
 
-// ─── Гео-зоны ─────────────────────────────────────────────────
-export const geoZonesApi = {
-  list: () =>
-    request<any[]>('/geo-zones'),
-
-  create: (data: Record<string, any>) =>
-    request<any>('/geo-zones', { method: 'POST', body: JSON.stringify(data) }),
-
-  update: (id: string, data: Record<string, any>) =>
-    request<any>(`/geo-zones/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-
-  delete: (id: string) =>
-    request<{ ok: boolean }>(`/geo-zones/${id}`, { method: 'DELETE' }),
-}
-
 // ─── Уведомления ─────────────────────────────────────────────
 export const notificationsApi = {
   list: () =>

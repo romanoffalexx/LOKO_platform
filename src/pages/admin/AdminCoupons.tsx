@@ -93,7 +93,7 @@ export function AdminCoupons() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-4 gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="metric-card">
           <div className="text-sm text-loko-text-secondary">Выдано</div>
           <div className="mt-1 text-2xl font-bold text-loko-text-primary">{issued}</div>
