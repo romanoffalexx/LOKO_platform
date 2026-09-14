@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import { pool } from '../db/pool.js'
 import { requireAdmin } from '../middleware/auth.js'
-import { notifyAdmins } from '../services/notify.js'
+import { notifyAdmins, notifyPartner } from '../services/notify.js'
 
 export const couponsRouter = Router()
 
@@ -129,6 +129,60 @@ couponsRouter.post('/', async (req: Request, res: Response) => {
     )
 
     await client.query('COMMIT')
+
+    // Получаем дополнительные данные для уведомлений
+    const [{ rows: offerFullRows }, { rows: orgFullRows }] = await Promise.all([
+      client.query(`SELECT title, organization_id FROM offers WHERE id = $1`, [offer_id]),
+      client.query(`SELECT name FROM organizations WHERE id = $1`, [organization_id]),
+    ])
+    const offerTitle = offerFullRows[0]?.title ?? ''
+    const offerOrgId = offerFullRows[0]?.organization_id ?? ''
+    const playOrgName = orgFullRows[0]?.name ?? ''
+
+    // Получаем название организации, где будет погашён купон
+    let redeemOrgName = ''
+    if (offerOrgId) {
+      const { rows: redeemOrgRows } = await client.query(`SELECT name FROM organizations WHERE id = $1`, [offerOrgId])
+      redeemOrgName = redeemOrgRows[0]?.name ?? ''
+    }
+
+    const clientName = userRows[0]?.name ?? ''
+    const clientPhone = userRows[0]?.phone ?? ''
+    const couponCode = rows[0].code
+    const issuedAt = new Date(rows[0].issued_at).toLocaleString('ru-RU')
+
+    // Уведомление админам
+    notifyAdmins({
+      event: `Новый выигрыш: ${clientName} (${clientPhone}) выиграл "${offerTitle}" в ${playOrgName}`,
+      subject: `[ЛОКО] Новый выигрыш: ${couponCode}`,
+      html: `
+        <h3>Новый выигрыш!</h3>
+        <p><strong>Клиент:</strong> ${clientName} (${clientPhone})</p>
+        <p><strong>Что выиграл:</strong> ${offerTitle}</p>
+        <p><strong>Код выигрыша:</strong> ${couponCode}</p>
+        <p><strong>Где играл:</strong> ${playOrgName}${source_point ? `, точка: ${source_point}` : ''}</p>
+        <p><strong>Где погасить:</strong> ${redeemOrgName}</p>
+        <p><strong>Дата:</strong> ${issuedAt}</p>
+      `,
+      telegramText: `🎉 Новый выигрыш!\n\nКлиент: ${clientName} (${clientPhone})\nЧто выиграл: ${offerTitle}\nКод: ${couponCode}\nГде играл: ${playOrgName}\nГде погасить: ${redeemOrgName}\nДата: ${issuedAt}`,
+    }).catch(err => console.error('[Coupons] notify admins error:', err.message))
+
+    // Уведомление партнёру (организации, чья акция выиграна)
+    notifyPartner({
+      organizationId: offerOrgId,
+      event: `Клиент ${clientName} выиграл "${offerTitle}" в вашей акции`,
+      subject: `[ЛОКО] Новый выигрыш в вашей акции: ${offerTitle}`,
+      html: `
+        <h3>Поздравляем! В вашей акции новый выигрыш!</h3>
+        <p><strong>Клиент:</strong> ${clientName} (${clientPhone})</p>
+        <p><strong>Что выиграл:</strong> ${offerTitle}</p>
+        <p><strong>Код выигрыша:</strong> ${couponCode}</p>
+        <p><strong>Где играл:</strong> ${playOrgName}${source_point ? `, точка: ${source_point}` : ''}</p>
+        <p><strong>Дата:</strong> ${issuedAt}</p>
+        <p>Клиент может обратиться к вам для получения выигрыша.</p>
+      `,
+    }).catch(err => console.error('[Coupons] notify partner error:', err.message))
+
     res.status(201).json(rows[0])
   } catch (err: any) {
     await client.query('ROLLBACK')
@@ -180,11 +234,36 @@ couponsRouter.post('/:id/redeem', async (req: Request, res: Response) => {
     await pool.query(`UPDATE offers SET total_redeemed = total_redeemed + 1 WHERE id = $1`, [rows[0].offer_id])
     await pool.query(`UPDATE leads SET redeemed = true WHERE coupon_id = $1`, [req.params.id])
 
+    // Получаем дополнительные данные для уведомления
+    const [{ rows: couponDetails }, { rows: offerDetails }, { rows: orgDetails }] = await Promise.all([
+      pool.query(`SELECT p.name, p.phone FROM participants p JOIN coupons c ON c.user_id = p.id WHERE c.id = $1`, [req.params.id]),
+      pool.query(`SELECT o.title, o.organization_id FROM offers o WHERE o.id = $1`, [rows[0].offer_id]),
+      pool.query(`SELECT name FROM organizations WHERE id = $1`, [rows[0].organization_id]),
+    ])
+
+    const { rows: redeemOrgDetails } = await pool.query(`SELECT name FROM organizations WHERE id = $1`, [offerDetails[0]?.organization_id || ''])
+
+    const clientName = couponDetails[0]?.name ?? ''
+    const clientPhone = couponDetails[0]?.phone ?? ''
+    const offerTitle = offerDetails[0]?.title ?? ''
+    const playOrgName = orgDetails[0]?.name ?? ''
+    const redeemOrgName = redeemOrgDetails[0]?.name ?? ''
+    const redeemedAt = new Date(rows[0].redeemed_at).toLocaleString('ru-RU')
+
     // Уведомление админам (system + Telegram)
     notifyAdmins({
-      event: `Купон ${rows[0].code} погашён`,
+      event: `Купон ${rows[0].code} погашён: ${clientName} (${clientPhone}) получил "${offerTitle}" в ${redeemOrgName}`,
       subject: `[ЛОКО] Купон ${rows[0].code} погашён`,
-      telegramText: `🎟 Купон <code>${rows[0].code}</code> погашён`,
+      html: `
+        <h3>Купон погашён!</h3>
+        <p><strong>Код купона:</strong> ${rows[0].code}</p>
+        <p><strong>Клиент:</strong> ${clientName} (${clientPhone})</p>
+        <p><strong>Что получил:</strong> ${offerTitle}</p>
+        <p><strong>Где играл:</strong> ${playOrgName}</p>
+        <p><strong>Где погасил:</strong> ${redeemOrgName}</p>
+        <p><strong>Дата погашения:</strong> ${redeemedAt}</p>
+      `,
+      telegramText: `🎟 Купон <code>${rows[0].code}</code> погашён\n\nКлиент: ${clientName} (${clientPhone})\nЧто получил: ${offerTitle}\nГде играл: ${playOrgName}\nГде погасил: ${redeemOrgName}\nДата: ${redeemedAt}`,
     }).catch(err => console.error('[Coupons] notify error:', err.message))
 
     res.json(rows[0])

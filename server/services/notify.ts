@@ -68,3 +68,35 @@ export async function notifyAdmins(opts: {
     [opts.event],
   )
 }
+
+/**
+ * Уведомить партнёра (организацию) по email о выигрыше.
+ */
+export async function notifyPartner(opts: {
+  organizationId: string
+  event: string
+  subject: string
+  html: string
+}) {
+  const { organizationId, event, subject, html } = opts
+
+  // Получаем email организации
+  const { rows } = await pool.query(
+    `SELECT email, name FROM organizations WHERE id = $1`,
+    [organizationId],
+  )
+
+  if (!rows[0]?.email) {
+    console.log(`[Notify] У организации ${rows[0]?.name || organizationId} нет email`)
+    return
+  }
+
+  // Отправляем email
+  await sendEmail(rows[0].email, subject, html)
+
+  // Системная запись
+  await pool.query(
+    `INSERT INTO notifications (channel, event, recipient, status) VALUES ('email', $1, $2, 'delivered')`,
+    [event, rows[0].email],
+  )
+}
